@@ -46,56 +46,14 @@
 #
 
 
-library(tidyverse)
-library(broom)
-
-calc_fa <- function(D, m, Dm) {
-  1 / (1 + ((Dm / D)^m))
-}
-
-calc_d <- function(fa, m, Dm) {
-  Dm*(fa / (1 - fa))^(1/m)
-}
-
-df <- tribble(
-  ~D, ~fa,
-  0.1, 0.24,
-  0.15, 0.44,
-  0.2, 0.63,
-  0.25, 0.81,
-  0.35, 0.9
-)
-
-
-df <- tribble(
-  ~D, ~fa,
-  0.002, 0.429,
-  0.004, 0.708,
-  0.005, 0.761,
-  0.01, 0.882,
-  0.02, 0.932
-)
-
-df <- tribble(
-  ~D, ~fa,
-  0.05, 0.055,
-  0.1, 0.233,
-  0.2, 0.301,
-  0.5, 0.559,
-  1, 0.821,
-  2, 0.953
-)
-
-
-
-
 # Single drug object constructor
-new_single_drug <- function(D = double(), fa = double(), name = NA_character_, units = NA_character_) {
+# - a bit sloppy, as does not include the calculated values
+new_single_drug <- function(D = double(), fa = double(), name = character(0), units = character(0)) {
   stopifnot(is.double(D), is.double(fa))
   structure(list(D = D, fa = fa, name = name, units = units), class = 'single_drug')
 }
 
-# Single drug object validator
+# Single drug object validator + statistics calculator
 validate_single_drug <- function(x) {
   D <- x$D
   fa <- x$fa
@@ -128,24 +86,25 @@ validate_single_drug <- function(x) {
     )
   }
   
-  x$log_D <- log10(x$D)
+  # Do the statistical calculations; add more elements to x
+  
+  x$log_D     <- log10(x$D)
   x$log_fa_fu <- log10(x$fa / (1-x$fa))
   
-  df <- data.frame(list(log_D = x$log_D, log_fa_fu = x$log_fa_fu))
+  fit  <- stats::lm(log_fa_fu ~ log_D, data = data.frame(list(log_D = x$log_D, log_fa_fu = x$log_fa_fu)))
   
-  fit <- lm(log_fa_fu ~ log_D, data = df)
-  x$b <- unname(fit$coefficients[1])
-  x$m <- unname(fit$coefficients[2])
+  x$b  <- unname(fit$coefficients[1])
+  x$m  <- unname(fit$coefficients[2])
   x$Dm <- unname(10^(-x$b/x$m))
   x$R2 <- unname(summary(fit)$r.squared)
-  x$R <- unname(sqrt(x$R2)) * sign(x$m) # m should always be positive, but just in case
+  x$R  <- unname(sqrt(x$R2)) * sign(x$m) # m should always be positive, but just in case
 
-  x # return the input
+  x # return the validated and augmented object
 }
 
 
 # Single drug object helper
-single_drug <- function(D = double(), fa = double(), name = NA_character_, units = NA_character_) {
+single_drug <- function(D = double(), fa = double(), name = "", units = "") {
   D <- as.double(D)
   fa = as.double(fa)
   name = as.character(name)
@@ -153,14 +112,6 @@ single_drug <- function(D = double(), fa = double(), name = NA_character_, units
   validate_single_drug(new_single_drug(D, fa, name, units))
 }
 
-df <- tribble(
-  ~D, ~fa,
-  0.1, 0.24,
-  0.15, 0.44,
-  0.2, 0.63,
-  0.25, 0.81,
-  0.35, 0.9
-)
 
 
 # Add print for single_drug display
@@ -176,8 +127,8 @@ print.single_drug <- function(x, ..., stats = TRUE) {
   
   df <- data.frame(list(D = D, fa = fa, log_D = log_D, log_fa_fu = log_fa_fu))
   
-  if (!is.na(x$name)) { cat("Drug: ", name, "\n", sep = '') }
-  if (!is.na(x$units)) { cat("Units: ", units, "\n", sep = '')}
+  if (x$name  != "") { cat("Drug: ", name, "\n", sep = '') }
+  if (x$units != "") { cat("Units: ", units, "\n", sep = '')}
   
   print(knitr::kable(df))
   
@@ -185,19 +136,80 @@ print.single_drug <- function(x, ..., stats = TRUE) {
 }
 
 
-d <- single_drug(D =df$D, fa = df$fa, name = 'Pyrethrin', units = 'mg')
+plot.single_drug <- function(x, y, ..., color = 'blue') {
+  title <- "Median-Effect Plot"
+  if (x$name != "") { title <- paste0(title, ": ", x$name) }
+  if (x$units != "") { title <- paste0(title, " (", x$units, ")") }
+
+    df <- data.frame(list(D = x$D, fa = x$fa, log_D = x$log_D, log_fa_fu = x$log_fa_fu))
+
+  g <- ggplot2::ggplot(
+    data = df,
+    ggplot2::aes(log_D, log_fa_fu)
+  ) +
+    ggplot2::geom_point() +
+    ggplot2::stat_smooth(method = "lm", color = color) +
+    ggplot2::xlab("log (D)") +
+    ggplot2::ylab("log (fa / fu)") +
+    ggplot2::ggtitle(title)
+
+  g
+}
+
+
+# df <- dplyr::tribble(
+#   ~D, ~fa,
+#   0.1, 0.24,
+#   0.15, 0.44,
+#   0.2, 0.63,
+#   0.25, 0.81,
+#   0.35, 0.9
+# )
+# 
+# 
+# df <- dplyr::tribble(
+#   ~D, ~fa,
+#   0.002, 0.429,
+#   0.004, 0.708,
+#   0.005, 0.761,
+#   0.01, 0.882,
+#   0.02, 0.932
+# )
+# 
+# df <- dplyr::tribble(
+#   ~D, ~fa,
+#   0.05, 0.055,
+#   0.1, 0.233,
+#   0.2, 0.301,
+#   0.5, 0.559,
+#   1, 0.821,
+#   2, 0.953
+# )
+
+
+D <- c(0.10, 0.15, 0.20, 0.25, 0.35)
+fa <- c(0.24, 0.44, 0.63, 0.81, 0.90)
+d <- single_drug(D = D, fa = fa, name = 'Drug name', units = 'mg')
 # class(d)
 # inherits(d, "single_drug")
 d
+str(d)
+# unclass(d)
+
+plot(d)
+
+
+calc_fa <- function(D, m, Dm) {
+  1 / (1 + ((Dm / D)^m))
+}
+
+calc_d <- function(fa, m, Dm) {
+  Dm*(fa / (1 - fa))^(1/m)
+}
+
 
 
 df %>% ggplot(aes(D, fa)) + geom_point() + theme_bw()
-
-df <- df %>%
-  mutate(
-    log_D = log10(D),
-    log_fa_fu = log10(fa / (1-fa))
-  )
 
 df %>% ggplot(aes(log_D, log_fa_fu)) + geom_point() + stat_smooth(method = "lm", col = "blue") + theme_bw()
 
@@ -206,3 +218,9 @@ df2 <- as.data.frame(list(D = calc_d(fa, m, Dm), fa = fa))
 df2 %>% ggplot(aes(D, fa)) + geom_line() + theme_bw() + coord_cartesian(ylim = c(0,1))
 
 # df2 %>% mutate(log_D = log10(D), log_fa_fu = log10(fa / (1-fa))) %>% ggplot(aes(log_D, log_fa_fu)) + geom_line()
+
+
+
+
+
+
