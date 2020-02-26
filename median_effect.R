@@ -6,33 +6,28 @@
 # - ggplot2
 #
 #
-# Classes:
+# Class: drug_effects
 #
-# - single drug series
+# Single drug series
 # - vector of doses (D)
 # - vector of fraction affected (fa)
 # - drug name  (name)
 # - drug units (units)
-# - Dm, m, R^2, R, log10(D), log10(fa / (1-fa))
+# - Calculated: Dm, m, R^2, R, log10(D), log10(fa / (1-fa))
 #
 #
-# - combination drug series, constant ratio
-# - subclass from single drug series?
-# - vector of sum of drug 1 and drug 2 doses (D)
-# - vector of fraction affected (fa)
-# - ratio: drug 1 / drug 2 (ratio)
-# - drug 1 name  (name1)
-# - drug 1 units (units1)
-# - drug 2 name  (name2)
-# - drug 2 units (units2)
+# Combination drug series, constant ratio
+# - ADD: ratio: drug 1 / drug 2 (ratio)
+# - ADD: drug 2 name  (name2)
+# - ADD: drug 2 units (units2)
 #
-# - combination drug series, non-constant ratio
-# - subclass from combination drug series? adds vector of drug 2 doses and removes ratio
+#
+# Combination drug series, non-constant ratio
 # - vector of drug 1 doses (D1)
 # - vector of drug 2 doses (D2)
 # - vector of fraction affected (fa)
-# - drug 1 name  (name1)
-# - drug 1 units (units1)
+# - drug 1 name  (name)
+# - drug 1 units (units)
 # - drug 2 name  (name2)
 # - drug 2 units (units2)
 #
@@ -48,51 +43,40 @@
 # - fa-CI plot from drug 1, drug 2, constant / non-constant ratio combo
 # - isobologram?
 # - print() / export() combo analysis
-#
 
 
-# Single drug object constructor
-# - a bit sloppy, as does not include the calculated values
-new_single_drug <- function(D = double(), fa = double(), name = character(0), units = character(0)) {
-  stopifnot(is.double(D), is.double(fa))
-  structure(list(D = D, fa = fa, name = name, units = units), class = 'single_drug')
+# Drug effects object constructor: for single drugs and constant ratio combinations
+new_drug_effects <- function(D = double(), fa = double(), name = "", units = "", ratio = double(), name2 = "", units2 = "") {
+  stopifnot(is.double(D), is.double(fa), is.double(ratio))
+  
+  values <- list(D = D, fa = fa, name = name, units = units)
+  class <- c("drug_effects")
+  
+  if (length(ratio) != 0) {
+    values <- c(values, list(ratio = ratio, name2 = name2, units2 = units2))
+    class <- append("combo_drug_effects", class)
+  }
+  
+  structure(values, class = class)
 }
 
-# Single drug object validator + statistics calculator
-validate_single_drug <- function(x) {
-  D <- x$D
+# Drug effects object validator + statistics calculator
+validate_drug_effects <- function(x) {
+  D  <- x$D
   fa <- x$fa
+  ratio <- x$ratio
   
-  if (!all(!is.na(D) & D > 0.0)) {
-    stop(
-      "All doses `D` must be non-missing and greater than zero",
-      call. = FALSE
-    )
-  }
+  if (!all(!is.na(D) & D > 0.0)) { stop("All doses `D` must be non-missing and greater than zero", call. = FALSE) }
+  if (!all(!is.na(fa) & fa > 0.0 & fa < 1.0)) { stop("All fraction affected `fa` must be non-missing, greater than zero, and less than one", call. = FALSE) }
+  if (length(D) != length(fa)) { stop("The number of doses must equal the number of fraction affected", call. = FALSE) }
+  if (length(D) < 2) { stop("There must be at least two dose / fraction affected points", call. = FALSE) }
   
-  if (!all(!is.na(fa) & fa > 0.0 & fa < 1.0)) {
-    stop(
-      "All fraction affected `fa` must be non-missing, greater than zero, and less than one",
-      call. = FALSE
-    )
-  }
-  
-  if (length(D) != length(fa)) {
-    stop(
-      "The number of doses must equal the number of fraction affected",
-      call. = FALSE
-    )
-  }
-  
-  if (length(D) == 0) {
-    stop(
-      "There must be at least one dose / fraction affected point",
-      call. = FALSE
-    )
+  if (length(ratio) != 0) {
+    if (length(ratio) != 1) { stop("Only a single constant ratio can be used", call. = FALSE) }
+    if (ratio < 0) { stop("The ratio of drug1 / drug2 must be non-negative", call. = FALSE) }
   }
   
   # Do the statistical calculations; add more elements to x
-  
   x$log_D     <- log10(x$D)
   x$log_fa_fu <- log10(x$fa / (1-x$fa))
   
@@ -109,18 +93,20 @@ validate_single_drug <- function(x) {
 
 
 # Single drug object helper
-single_drug <- function(D = double(), fa = double(), name = "", units = "") {
+drug_effects <- function(D = double(), fa = double(), name = "", units = "", ratio = double(), name2 = "", units2 = "") {
   D <- as.double(D)
   fa = as.double(fa)
   name = as.character(name)
   units = as.character(units)
-  validate_single_drug(new_single_drug(D, fa, name, units))
+  ratio = as.double(ratio)
+  name2 = as.character(name2)
+  units2 = as.character(units2)
+  validate_drug_effects(new_drug_effects(D, fa, name, units, ratio, name2, units2))
 }
 
 
-
-# Add print for single_drug display
-print.single_drug <- function(x, ..., stats = TRUE) {
+# Add print for drug_effects display
+print.drug_effects <- function(x, ..., stats = TRUE) {
   
   D <- x$D
   fa <- x$fa
@@ -141,7 +127,7 @@ print.single_drug <- function(x, ..., stats = TRUE) {
 }
 
 
-plot.single_drug <- function(x, y, ..., color = 'blue') {
+plot.drug_effects <- function(x, y, ..., color = 'blue') {
   title <- "Median-Effect Plot"
   if (x$name != "") { title <- paste0(title, ": ", x$name) }
   if (x$units != "") { title <- paste0(title, " (", x$units, ")") }
@@ -163,7 +149,7 @@ plot.single_drug <- function(x, y, ..., color = 'blue') {
 
 
 dose_effect_plot <- function(drug, from = 0.01, to = 0.99, by = 0.01) {
-  if (!inherits(drug, "single_drug")) {
+  if (!inherits(drug, "drug_effects")) {
     stop(
       "This requires a drug dose/fa object",
       call. = FALSE
@@ -222,15 +208,24 @@ dose_effect_plot <- function(drug, from = 0.01, to = 0.99, by = 0.01) {
 D  <- c(0.10, 0.15, 0.20, 0.25, 0.35)
 fa <- c(0.24, 0.44, 0.63, 0.81, 0.90)
 
-d <- single_drug(D = D, fa = fa, name = 'Drug name', units = 'mg')
+d <- drug_effects(D = D, fa = fa, name = 'Drug name', units = 'mg')
 d
+
+d2 <- drug_effects(D = D, fa = fa, name = 'Drug name', units = 'mg', ratio = 1)
 
 plot(d)
 
+dose_effect_plot(d)
+
 # str(d)
 # class(d)
-# inherits(d, "single_drug")
+# inherits(d, "drug_effects")
 # unclass(d)
+
+
+
+
+
 
 
 
