@@ -1,6 +1,11 @@
 #
 # R package for Median Effect principle calculations and plots
 #
+# Requires
+# - knitr (for kable)
+# - ggplot2
+#
+#
 # Classes:
 #
 # - single drug series
@@ -8,7 +13,7 @@
 # - vector of fraction affected (fa)
 # - drug name  (name)
 # - drug units (units)
-# - CONSIDER: Dm, m, R^2, R, log10(D), log10(fa / (1-fa))
+# - Dm, m, R^2, R, log10(D), log10(fa / (1-fa))
 #
 #
 # - combination drug series, constant ratio
@@ -157,6 +162,33 @@ plot.single_drug <- function(x, y, ..., color = 'blue') {
 }
 
 
+dose_effect_plot <- function(drug, from = 0.01, to = 0.99, by = 0.01) {
+  if (!inherits(drug, "single_drug")) {
+    stop(
+      "This requires a drug dose/fa object",
+      call. = FALSE
+    )
+  }
+  
+  calc_d <- function(fa, m, Dm) { Dm*(fa / (1 - fa))^(1/m) }
+  
+  m  <- drug$m
+  Dm <- drug$Dm
+  
+  df <- data.frame(list(D = drug$D, fa = drug$fa))
+  
+  fa <- seq(from = from, to = to, by = by)
+  df2 <- data.frame(list(D = calc_d(fa, m, Dm), fa = fa))
+  g <- ggplot2::ggplot(data = df2, ggplot2::aes(D, fa)) +
+    ggplot2::geom_line() +
+    ggplot2::geom_point(data = df, ggplot2::aes(D, fa)) +
+    ggplot2::coord_cartesian(ylim = c(0,1))
+  
+  g
+}
+
+
+
 # df <- dplyr::tribble(
 #   ~D, ~fa,
 #   0.1, 0.24,
@@ -187,16 +219,20 @@ plot.single_drug <- function(x, y, ..., color = 'blue') {
 # )
 
 
-D <- c(0.10, 0.15, 0.20, 0.25, 0.35)
+D  <- c(0.10, 0.15, 0.20, 0.25, 0.35)
 fa <- c(0.24, 0.44, 0.63, 0.81, 0.90)
+
 d <- single_drug(D = D, fa = fa, name = 'Drug name', units = 'mg')
-# class(d)
-# inherits(d, "single_drug")
 d
-str(d)
-# unclass(d)
 
 plot(d)
+
+# str(d)
+# class(d)
+# inherits(d, "single_drug")
+# unclass(d)
+
+
 
 
 calc_fa <- function(D, m, Dm) {
