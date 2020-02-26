@@ -128,6 +128,18 @@ validate_single_drug <- function(x) {
     )
   }
   
+  x$log_D <- log10(x$D)
+  x$log_fa_fu <- log10(x$fa / (1-x$fa))
+  
+  df <- data.frame(list(log_D = x$log_D, log_fa_fu = x$log_fa_fu))
+  
+  fit <- lm(log_fa_fu ~ log_D, data = df)
+  x$b <- unname(fit$coefficients[1])
+  x$m <- unname(fit$coefficients[2])
+  x$Dm <- unname(10^(-x$b/x$m))
+  x$R2 <- unname(summary(fit)$r.squared)
+  x$R <- unname(sqrt(x$R2)) * sign(x$m) # m should always be positive, but just in case
+
   x # return the input
 }
 
@@ -169,16 +181,7 @@ print.single_drug <- function(x, ..., stats = TRUE) {
   
   print(knitr::kable(df))
   
-  if (stats) {
-    fit <- lm(log_fa_fu ~ log_D, df)
-    b <- fit$coefficients[1]
-    m <- fit$coefficients[2]
-    Dm <- 10^(-b/m)    
-    R2 <- summary(fit)$r.squared
-    R <- sqrt(R2)
-    cat('\nDm: ', Dm, '\nm: ', m, '\nR2: ', R2, '\nR: ', R, sep = '')
-  }
-  
+  if (stats) { cat('\nDm: ', x$Dm, '\nm: ', x$m, '\nR2: ', x$R2, '\nR: ', x$R, sep = '') }
 }
 
 
