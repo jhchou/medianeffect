@@ -90,7 +90,7 @@ df <- tribble(
 
 
 # Single drug object constructor
-new_single_drug <- function(D = double(), fa = double(), name = character(), units = character()) {
+new_single_drug <- function(D = double(), fa = double(), name = NA_character_, units = NA_character_) {
   stopifnot(is.double(D), is.double(fa))
   structure(list(D = D, fa = fa, name = name, units = units), class = 'single_drug')
 }
@@ -133,7 +133,7 @@ validate_single_drug <- function(x) {
 
 
 # Single drug object helper
-single_drug <- function(D = double(), fa = double(), name = character(), units = character()) {
+single_drug <- function(D = double(), fa = double(), name = NA_character_, units = NA_character_) {
   D <- as.double(D)
   fa = as.double(fa)
   name = as.character(name)
@@ -152,21 +152,40 @@ df <- tribble(
 
 
 # Add print for single_drug display
-print.single_drug <- function(x, ..., verbose = FALSE, stats = TRUE) {
-  df <- data.frame(list(D = x$D, fa = x$fa))
-  if (verbose) {
-    df$logD <- log10(x$D)
-    df$log_fa_fu <- log10(df$fa / (1-df$fa))
-  }
+print.single_drug <- function(x, ..., stats = TRUE) {
+  
+  D <- x$D
+  fa <- x$fa
+  name <- x$name
+  units <- x$units
+  
+  log_D <- log10(D)
+  log_fa_fu <- log10(fa / (1-fa))
+  
+  df <- data.frame(list(D = D, fa = fa, log_D = log_D, log_fa_fu = log_fa_fu))
+  
+  if (!is.na(x$name)) { cat("Drug: ", name, "\n", sep = '') }
+  if (!is.na(x$units)) { cat("Units: ", units, "\n", sep = '')}
+  
   print(knitr::kable(df))
-  cat("\nboog\n\n\n")
+  
+  if (stats) {
+    fit <- lm(log_fa_fu ~ log_D, df)
+    b <- fit$coefficients[1]
+    m <- fit$coefficients[2]
+    Dm <- 10^(-b/m)    
+    R2 <- summary(fit)$r.squared
+    R <- sqrt(R2)
+    cat('\nDm: ', Dm, '\nm: ', m, '\nR2: ', R2, '\nR: ', R, sep = '')
+  }
+  
 }
 
 
-d <- single_drug(D =df$D, fa = df$fa)
-class(d)
-inherits(d, "single_drug")
-
+d <- single_drug(D =df$D, fa = df$fa, name = 'Pyrethrin', units = 'mg')
+# class(d)
+# inherits(d, "single_drug")
+d
 
 
 df %>% ggplot(aes(D, fa)) + geom_point() + theme_bw()
@@ -178,32 +197,6 @@ df <- df %>%
   )
 
 df %>% ggplot(aes(log_D, log_fa_fu)) + geom_point() + stat_smooth(method = "lm", col = "blue") + theme_bw()
-
-fit <- lm(log_fa_fu ~ log_D, df)
-summary(fit)
-
-summary(fit)$r.squared
-sqrt(summary(fit)$r.squared)
-
-fit$coefficients
-
-g <- glance(fit)
-g
-
-g$r.squared %>% sqrt
-
-t <- tidy(fit)
-t
-
-a <- augment(fit)
-
-m <- t$estimate[2]
-b <- t$estimate[1]
-
-Dm <- 10^(-b/m)
-
-m
-Dm
 
 fa <- seq(from = 0.01, to = 0.99, by = 0.01)
 df2 <- as.data.frame(list(D = calc_d(fa, m, Dm), fa = fa))
