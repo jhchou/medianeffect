@@ -123,20 +123,27 @@ calc_D <- function(drug, fa) {
 }
 
 
-# Given drug 1, drug 2, and drug combination drug_effects objects, calculate combination index CI at vector of fa values
-calc_CI <- function(drug1, drug2, drug_combo, fa) {
+# Given drug 1, drug 2, and drug_combo objects, calculate combination index CI at vector of fa values
+# - if fa is empty, then use the actual fa and actual doses in drug_combo
+calc_CI <- function(drug1, drug2, drug_combo, fa = double()) {
   ratio <- drug_combo$ratio
+  
+  if (length(fa) == 0) {
+    fa <- drug_combo$fa # the actual fa observed in the combo
+    D_combo <- drug_combo$D # actual doses
+  } else {
+    D_combo <- calc_D(drug_combo, fa) # calculate predicted doses
+  }
+  D1 <- D_combo * (ratio / (ratio + 1))
+  D2 <- D_combo / (ratio + 1)
   
   Dx1 <- calc_D(drug1, fa)
   Dx2 <- calc_D(drug2, fa)
-  
-  D_combo <- calc_D(drug_combo, fa)
-  D1 <- (ratio / (ratio + 1)) * D_combo
-  D2 <- D_combo / (ratio + 1)
-  
+
   CI <- (D1 / Dx1) + (D2 / Dx2)
   return(CI)
 }
+
 
 
 # Add print for drug_effects display
@@ -200,6 +207,17 @@ plot.drug_effects <- function(x, y, ..., color = 'blue') {
   g
 }
 
+median_effect_plot <- function(...) {
+  # takes an arbitrary number of drug_effect objects
+  # [ ] do something about combination names
+  df <- data.frame()
+  for (d in list(...)) {
+    df <- rbind(df, data.frame(list(log_D = d$log_D, log_fa_fu = d$log_fa_fu, name = d$name)))
+  }
+  ggplot2::ggplot(data = df, ggplot2::aes(log_D, log_fa_fu, shape = name, color = name)) +
+    ggplot2::geom_point() +
+    ggplot2::stat_smooth(method = "lm", se = FALSE, fullrange=TRUE)
+}
 
 dose_effect_plot <- function(drug, from = 0.01, to = 0.99, by = 0.01) {
   if (!inherits(drug, "drug_effects")) {
@@ -228,13 +246,17 @@ dose_effect_plot <- function(drug, from = 0.01, to = 0.99, by = 0.01) {
 
 
 fa_ci_plot <- function(drug1, drug2, drug_combo, from = 0.01, to = 0.99, by = 0.01) {
+  
   fa <- seq(from = from, to = to, by = by)
   CI = calc_CI(drug1, drug2, drug_combo, fa)
-  
   df <- data.frame(list(fa = fa, CI = CI))
+  
+  df_points <- data.frame(list(fa = drug_combo$fa, CI = calc_CI(drug1, drug2, drug_combo)))
+  
   g <- ggplot2::ggplot(df, ggplot2::aes(fa, CI)) +
     ggplot2::geom_line() +
     ggplot2::geom_hline(yintercept = 1.0, linetype = 'dotted') +
+    ggplot2::geom_point(data = df_points, ggplot2::aes(fa, CI)) +
     ggplot2::coord_cartesian(xlim = c(0,1))
   g
 }
@@ -296,8 +318,12 @@ drug2 <- drug_effects(D = c(0.05, 0.1, 0.2, 0.5, 1, 2), fa = c(0.055, 0.233, 0.3
 # Taxol:Cis-Pt Combo, ratio = 0.1
 # drug_combo <- drug_effects(D = c(0.11, 0.22, 0.55, 1.1), fa = c(0.45, 0.671, 0.921, 0.958), ratio = 0.1)
 
-drug_combo <- drug_effects(D = c(0.001, 0.002, 0.005, 0.01) + c(0.1, 0.2, 0.5, 1), fa = c(0.45, 0.671, 0.921, 0.958), ratio = 0.01)
+drug_combo <- drug_effects(D = c(0.001, 0.002, 0.005, 0.01) + c(0.1, 0.2, 0.5, 1), fa = c(0.45, 0.671, 0.921, 0.958), name = 'combo', ratio = 0.01)
 
 calc_CI(drug1, drug2, drug_combo, fa = c(0.5, 0.75, 0.9, 0.95))
 
 fa_ci_plot(drug1, drug2, drug_combo, from = 0.1, to = 0.9)
+
+median_effect_plot(drug1, drug2, drug_combo)
+
+
