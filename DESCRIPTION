@@ -1,0 +1,12 @@
+Package: medianeffect
+Type: Package
+Title: Dose-Effect Analysis with the Median Effect Principle
+Version: 0.1.0
+Author: Joseph Chou
+Maintainer: Joseph Chou <joe.nicu@gmail.com>
+Description: Facilitate analysis of single and multiple drug
+    dose-effect analysis via the Median Effect Principle
+    including quantitation of synergism and antagonism.
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
