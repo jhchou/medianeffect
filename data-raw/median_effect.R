@@ -2,7 +2,7 @@
 #
 # Requires:
 # - knitr (for kable)
-# - ggplot2
+# - dplyr, ggplot2
 #
 # Class: drug_effects
 #
@@ -177,14 +177,16 @@ plot.drug_effects <- function(x, y, ..., color = 'blue') {
 
 median_effect_plot <- function(...) {
   # takes an arbitrary number of drug_effect objects
-  # [ ] assign labels if empty
-  # [ ] fix so does not re-order the drugs alphabetically
   df <- data.frame()
+  i <- 0
   for (d in list(...)) {
     if (inherits(d, "drug_effects")) {
+      i <- i + 1
+      if (d$label == '') { d$label <- paste('Drug', i) } # assign labels if empty
       df <- rbind(df, data.frame(list(log_D = d$log_D, log_fa_fu = d$log_fa_fu, label = d$label), stringsAsFactors = FALSE))
     }
   }
+  df$label <- factor(df$label, levels = unique(df$label)) # prevent re-ordering of labels; `unique` appears to maintain order
   ggplot2::ggplot(data = df, ggplot2::aes(log_D, log_fa_fu, shape = label, color = label)) +
     ggplot2::geom_point() +
     ggplot2::stat_smooth(method = "lm", se = FALSE, fullrange=TRUE) # fullrange allows extrapolation of line beyond the data points
@@ -194,14 +196,30 @@ dose_effect_plot <- function(..., from = 0.01, to = 0.99, by = 0.01) {
   # takes an arbitrary number of drug_effect objects
   df_lines <- data.frame()
   df_points <- data.frame()
+
+  i <- 0
   for (d in list(...)) {
     if (inherits(d, "drug_effects")) {
-      df_lines  <- rbind(df_lines, data.frame(list(m = d$m, Dm = d$Dm, name = d$name), stringsAsFactors = FALSE))   # dataframe with m, Dm, name
-      df_points <- rbind(df_points, data.frame(list(D = d$D, fa = d$fa, name = d$name), stringsAsFactors = FALSE))  # dataframe with D, fa, name
+      i <- i + 1
+      if (d$label == '') { d$label <- paste('Drug', i) } # assign labels if empty
+      df_lines  <- rbind(df_lines,  data.frame(list(label = d$label, m = d$m, Dm = d$Dm))) # dataframe with label, m, Dm
+      df_points <- rbind(df_points, data.frame(list(label = d$label, D = d$D, fa = d$fa))) # dataframe with label, D, fa
     }
   }
+  labels <- unique(df_lines$label) # prevent re-ordering of labels; `unique` appears to maintain order
+  df_lines$label  <- factor(df_lines$label,  levels = labels)
+  df_points$label <- factor(df_points$label, levels = labels)
 
-  list(df_lines, df_points)
+  # Generate curves from m, Dm in df_lines
+  df_lines$dummy <- 'dummy'
+  df2 <- data.frame(list(fa = seq(from = from, to = to, by = by), dummy = 'dummy'), stringsAsFactors = FALSE)
+  df_lines <- dplyr::left_join(df_lines, df2, by = 'dummy')
+  df_lines <- dplyr::mutate(df_lines, D = Dm*(fa / (1 - fa))^(1/m))
+
+  g <- ggplot2::ggplot(df_lines, ggplot2::aes(D, fa, color = label)) +
+    ggplot2::geom_line() +
+    ggplot2::geom_point(data = df_points, ggplot2::aes(D, fa, color = label, shape = label))
+  g
 }
 
 #   m  <- drug$m
@@ -267,7 +285,7 @@ fa_ci_plot <- function(drug1, drug2, drug_combo, from = 0.01, to = 0.99, by = 0.
 # Standard test example
 D  <- c(0.10, 0.15, 0.20, 0.25, 0.35)
 fa <- c(0.24, 0.44, 0.63, 0.81, 0.90)
-d <- drug_effects(D = D, fa = fa, name = 'Drug One', label = 'drug1')
+d <- drug_effects(D = D, fa = fa)
 d # print(d)
 plot(d)
 
@@ -298,4 +316,4 @@ fa_ci_plot(drug1, drug2, drug_combo, from = 0.05, to = 0.95)
 
 median_effect_plot(drug1, drug2, drug_combo)
 
-
+dose_effect_plot(drug1, drug2, drug_combo, to = 0.98)
