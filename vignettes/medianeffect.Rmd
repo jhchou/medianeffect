@@ -21,9 +21,10 @@ library(medianeffect)
 ## Install the package
 
 * this would only need to be done once
+* `build_vignettes = TRUE` makes the install slower, but then you can `vignette('medianeffect')` to see this document
 
 ```{r, eval = FALSE}
-devtools::install_github("jhchou/medianeffect")
+devtools::install_github("jhchou/medianeffect", build_vignettes = TRUE)
 ```
 
 ## Load the package
