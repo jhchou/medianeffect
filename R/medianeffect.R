@@ -235,6 +235,7 @@ print.drug_effects <- function(x, ..., stats = TRUE) {
 #' @param y (not used)
 #' @param ... (not used)
 #' @param color Line color
+#' @importFrom rlang .data
 #' @export
 #'
 plot.drug_effects <- function(x, y, ..., color = 'blue') {
@@ -246,7 +247,7 @@ plot.drug_effects <- function(x, y, ..., color = 'blue') {
 
   g <- ggplot2::ggplot(
     data = df,
-    ggplot2::aes(log_D, log_fa_fu)
+    ggplot2::aes(.data$log_D, .data$log_fa_fu)
   ) +
     ggplot2::geom_point() +
     ggplot2::stat_smooth(method = "lm", color = color) +
@@ -265,6 +266,7 @@ plot.drug_effects <- function(x, y, ..., color = 'blue') {
 #' Plots linearized log(fa / (1-fa)) versus log(D)
 #'
 #' @param ... drug_effects objects to plot
+#' @importFrom rlang .data
 #' @export
 median_effect_plot <- function(...) {
   df <- data.frame()
@@ -277,9 +279,9 @@ median_effect_plot <- function(...) {
     }
   }
   df$label <- factor(df$label, levels = unique(df$label)) # prevent re-ordering of labels; `unique` appears to maintain order
-  ggplot2::ggplot(data = df, ggplot2::aes(log_D, log_fa_fu, shape = label, color = label)) +
+  ggplot2::ggplot(data = df, ggplot2::aes(.data$log_D, .data$log_fa_fu, shape = .data$label, color = .data$label)) +
     ggplot2::geom_point() +
-    ggplot2::stat_smooth(method = "lm", se = FALSE, fullrange=TRUE) # fullrange allows extrapolation of line beyond the data points
+    ggplot2::stat_smooth(method = "lm", se = FALSE, fullrange = TRUE) # fullrange allows extrapolation of line beyond the data points
 }
 
 
@@ -294,6 +296,7 @@ median_effect_plot <- function(...) {
 #' @param from Start of range of fraction affected (fa)
 #' @param to End of range of fa
 #' @param by Step size of fa
+#' @importFrom rlang .data
 #' @export
 dose_effect_plot <- function(..., from = 0.01, to = 0.99, by = 0.01) {
   # takes an arbitrary number of drug_effect objects
@@ -318,11 +321,11 @@ dose_effect_plot <- function(..., from = 0.01, to = 0.99, by = 0.01) {
   df_lines$dummy <- 'dummy'
   df2 <- data.frame(list(fa = seq(from = from, to = to, by = by), dummy = 'dummy'), stringsAsFactors = FALSE)
   df_lines <- dplyr::left_join(df_lines, df2, by = 'dummy')
-  df_lines <- dplyr::mutate(df_lines, D = Dm*(fa / (1 - fa))^(1/m))
+  df_lines <- dplyr::mutate(df_lines, D = .data$Dm*(.data$fa / (1 - .data$fa))^(1/.data$m))
 
-  g <- ggplot2::ggplot(df_lines, ggplot2::aes(D, fa, color = label)) +
+  g <- ggplot2::ggplot(df_lines, ggplot2::aes(.data$D, .data$fa, color = .data$label)) +
     ggplot2::geom_line() +
-    ggplot2::geom_point(data = df_points, ggplot2::aes(D, fa, color = label, shape = label))
+    ggplot2::geom_point(data = df_points, ggplot2::aes(.data$D, .data$fa, color = .data$label, shape = .data$label))
   g
 }
 

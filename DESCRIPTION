@@ -15,5 +15,6 @@ BugReports: https://github.com/jhchou/medianeffect/issues
 Imports:
     dplyr,
     ggplot2,
-    knitr
+    knitr,
+    rlang
 RoxygenNote: 7.0.2
