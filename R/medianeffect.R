@@ -281,7 +281,10 @@ median_effect_plot <- function(...) {
   df$label <- factor(df$label, levels = unique(df$label)) # prevent re-ordering of labels; `unique` appears to maintain order
   ggplot2::ggplot(data = df, ggplot2::aes(.data$log_D, .data$log_fa_fu, shape = .data$label, color = .data$label)) +
     ggplot2::geom_point() +
-    ggplot2::stat_smooth(method = "lm", se = FALSE, fullrange = TRUE) # fullrange allows extrapolation of line beyond the data points
+    ggplot2::stat_smooth(method = "lm", se = FALSE, fullrange = TRUE) + # fullrange allows extrapolation of line beyond the data points
+    ggplot2::xlab("log (D)") +
+    ggplot2::ylab("log (fa / fu)") +
+    ggplot2::labs(color = 'Drug', shape = 'Drug')
 }
 
 
@@ -325,7 +328,10 @@ dose_effect_plot <- function(..., from = 0.01, to = 0.99, by = 0.01) {
 
   g <- ggplot2::ggplot(df_lines, ggplot2::aes(.data$D, .data$fa, color = .data$label)) +
     ggplot2::geom_line() +
-    ggplot2::geom_point(data = df_points, ggplot2::aes(.data$D, .data$fa, color = .data$label, shape = .data$label))
+    ggplot2::geom_point(data = df_points, ggplot2::aes(.data$D, .data$fa, color = .data$label, shape = .data$label)) +
+    ggplot2::xlab("Dose") +
+    ggplot2::ylab("Fraction affected (fa)") +
+    ggplot2::labs(color = 'Drug', shape = 'Drug')
   g
 }
 

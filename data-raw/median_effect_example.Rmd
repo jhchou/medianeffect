@@ -1,0 +1,117 @@
+---
+title: "Median-Effect Analysis"
+author: "Joseph Chou"
+date: "2/28/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, comment = '')
+```
+
+## Install the package
+
+* this would only need to be done once
+
+```{r, eval = FALSE}
+devtools::install_github("jhchou/medianeffect")
+```
+
+## Load the package
+
+```{r}
+library(medianeffect)
+```
+
+## Simple example
+
+Create a drug-effects object and display it.
+
+```{r}
+D  <- c(0.10, 0.15, 0.20, 0.25, 0.35) # list of doses
+fa <- c(0.24, 0.44, 0.63, 0.81, 0.90) # list of fa
+
+d <- drug_effects(D, fa) # create a drug-effects object
+d
+```
+
+Plot the drug-effects object
+
+```{r}
+plot(d)
+```
+
+It's possible to retrieve calculated values from the drug-effects object
+
+```{r}
+str(d)
+```
+
+For example, to retrieve the median effect dose (Dm):
+
+```{r}
+d$Dm
+```
+
+## Fixed ratio combination example
+
+### Create the drug 1, 2, and combination drug-effects objects.
+
+```{r}
+# Taxol
+drug1 <- drug_effects(
+  D = c(0.002, 0.004, 0.005, 0.01, 0.02),
+  fa = c(0.429, 0.708, 0.761, 0.882, 0.932),
+  name = "Taxol",
+  label = "taxol")
+
+drug1
+```
+
+```{r}
+# Cis-Pt
+drug2 <- drug_effects(
+  D = c(0.05, 0.1, 0.2, 0.5, 1, 2),
+  fa = c(0.055, 0.233, 0.301, 0.559, 0.821, 0.953),
+  name = "Cisplatin",
+  label = "cis-pt")
+
+drug2
+```
+
+```{r}
+# Taxol:Cis-Pt Combo, ratio = 0.1
+drug_combo <- drug_effects(
+  D = c(0.001, 0.002, 0.005, 0.01) + c(0.1, 0.2, 0.5, 1),
+  fa = c(0.45, 0.671, 0.921, 0.958),
+  name = 'Taxol - Cisplatin',
+  label = 'combo',
+  ratio = 0.01)
+
+drug_combo
+```
+
+### Dose-effect plot
+
+```{r}
+dose_effect_plot(drug1, drug2, drug_combo, to = 0.98)
+```
+
+### Median-effect plot
+
+```{r}
+median_effect_plot(drug1, drug2, drug_combo)
+```
+
+### Calculate combination index (CI) at specified fa levels
+
+```{r}
+calc_CI(drug1, drug2, drug_combo, fa = c(0.5, 0.75, 0.9, 0.95))
+```
+
+### fa-CI plot
+
+```{r}
+fa_ci_plot(drug1, drug2, drug_combo, from = 0.05, to = 0.95)
+```
+
