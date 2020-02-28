@@ -1,62 +1,36 @@
-#
 # R package for Median Effect principle calculations and plots
 #
-# Requires
+# Requires:
 # - knitr (for kable)
 # - ggplot2
-#
 #
 # Class: drug_effects
 #
 # Single drug series
 # - vector of doses (D)
 # - vector of fraction affected (fa)
-# - drug name  (name)
-# - drug units (units)
+# - drug name (name) - full name of tested drug
+# - label (label)    - label to use on plots
+# - info (info)      - additional information
+# - ratio: drug 1 / drug 2 (ratio), only defined for constant ratio drug combinations
 # - Calculated: Dm, m, R^2, R, log10(D), log10(fa / (1-fa))
 #
-#
-# Combination drug series, constant ratio
-# - ADD: ratio: drug 1 / drug 2 (ratio)
-# - ADD: drug 2 name  (name2)
-# - ADD: drug 2 units (units2)
-#
-#
-# Combination drug series, non-constant ratio
+# Combination drug series, NON-constant ratio
+# - separate object type?
 # - vector of drug 1 doses (D1)
 # - vector of drug 2 doses (D2)
 # - vector of fraction affected (fa)
-# - drug 1 name  (name)
-# - drug 1 units (units)
-# - drug 2 name  (name2)
-# - drug 2 units (units2)
-#
-#
-# Methods:
-#
-# - print() / export()
-# - calculate fa from D
-# - calculate D from fa
-# - sigmoidal: plot fa versus D
-# - linear:    plot log10(fa / (1-fa)) versus log10(D)
-#
-# - fa-CI plot from drug 1, drug 2, constant / non-constant ratio combo
-# - isobologram?
-# - print() / export() combo analysis
+# - drug name (name) - full name of tested drugs
+# - label (label)    - label to use on plots
+# - info (info)      - additional information
 
 
 # Drug effects object constructor: for single drugs and constant ratio combinations
-new_drug_effects <- function(D = double(), fa = double(), name = "", units = "", ratio = double(), name2 = "", units2 = "") {
+new_drug_effects <- function(D = double(), fa = double(), name = "", label = "", info = "", ratio = double()) {
   stopifnot(is.double(D), is.double(fa), is.double(ratio))
-
-  values <- list(D = D, fa = fa, name = name, units = units, ratio = ratio, name2 = name2, units2 = units2)
+  values <- list(D = D, fa = fa, name = name, label = label, info = info, ratio = ratio)
   class <- c("drug_effects")
-
-  if (length(ratio) != 0) {
-    # values <- c(values, list(ratio = ratio, name2 = name2, units2 = units2))
-    class <- append("combo_drug_effects", class)
-  }
-
+  if (length(ratio) != 0) { class <- append("combo_drug_effects", class) }
   structure(values, class = class)
 }
 
@@ -93,15 +67,14 @@ validate_drug_effects <- function(x) {
 
 
 # Single drug object helper
-drug_effects <- function(D = double(), fa = double(), name = "", units = "", ratio = double(), name2 = "", units2 = "") {
+drug_effects <- function(D = double(), fa = double(), name = "", label = "", info = "", ratio = double()) {
   D <- as.double(D)
   fa = as.double(fa)
   name = as.character(name)
-  units = as.character(units)
+  label = as.character(label)
+  info = as.character(info)
   ratio = as.double(ratio)
-  name2 = as.character(name2)
-  units2 = as.character(units2)
-  validate_drug_effects(new_drug_effects(D, fa, name, units, ratio, name2, units2))
+  validate_drug_effects(new_drug_effects(D, fa, name, label, info, ratio))
 }
 
 
@@ -126,6 +99,7 @@ calc_D <- function(drug, fa) {
 # Given drug 1, drug 2, and drug_combo objects, calculate combination index CI at vector of fa values
 # - if fa is empty, then use the actual fa and actual doses in drug_combo
 calc_CI <- function(drug1, drug2, drug_combo, fa = double()) {
+  # [ ] should do class checking here
   ratio <- drug_combo$ratio
 
   if (length(fa) == 0) {
@@ -152,32 +126,26 @@ print.drug_effects <- function(x, ..., stats = TRUE) {
   D <- x$D
   fa <- x$fa
   name <- x$name
-  units <- x$units
-
+  label <- x$label
+  if (label != '') { label <- paste0(' (', label, ')') }
+  info <- x$info
+  if (info != '') { info <- paste0('\n\n', info) }
   ratio <- x$ratio
-  name2 <- x$name2
-  units2 <- x$units2
-
   Dm <- x$Dm
 
-  # log_D <- log10(D)
-  # log_fa_fu <- log10(fa / (1-fa))
+  cat(name, label, info, sep = '')
 
-  if (x$name  != "") { cat("Drug: ", name, "\n", sep = '') }
-  if (x$units != "") { cat("Units: ", units, "\n", sep = '')}
+  # If want to also include columns of log(D) and log(fa / fu)
+  # df <- data.frame(list(D = D, fa = fa, log_D = x$log_D, log_fa_fu = x$log_fa_fu))
 
-  if (x$name2  != "") { cat("Drug 2: ", name2, "\n", sep = '') }
-  if (x$units2 != "") { cat("Units 2: ", units2, "\n", sep = '')}
-
-  # df <- data.frame(list(D = D, fa = fa, log_D = log_D, log_fa_fu = log_fa_fu))
   df <- data.frame(list(D = D, fa = fa))
   if (length(ratio) != 0) {
-    cat("\nRatio of drug 1 / drug 2: ", ratio, sep = '')
+    cat("\n\nRatio (drug 1/drug 2): ", ratio, sep = '')
     D1 <- (ratio / (ratio+1)) * D
     D2 <- D / (ratio + 1)
     df$D1 <- D1
     df$D2 <- D2
-
+    # For combination, also show the contributing doses from drug 1 + 2, and not just the sum
     Dm <- paste0(signif(Dm, 4), ' = ', signif((ratio / (ratio+1)) * Dm, 4), ' + ', signif(Dm / (ratio + 1), 4))
   }
 
@@ -190,9 +158,9 @@ print.drug_effects <- function(x, ..., stats = TRUE) {
 plot.drug_effects <- function(x, y, ..., color = 'blue') {
   title <- "Median-Effect Plot"
   if (x$name != "") { title <- paste0(title, ": ", x$name) }
-  if (x$units != "") { title <- paste0(title, " (", x$units, ")") }
+  if (x$label != "") { title <- paste0(title, " (", x$label, ")") }
 
-    df <- data.frame(list(D = x$D, fa = x$fa, log_D = x$log_D, log_fa_fu = x$log_fa_fu))
+  df <- data.frame(list(D = x$D, fa = x$fa, log_D = x$log_D, log_fa_fu = x$log_fa_fu))
 
   g <- ggplot2::ggplot(
     data = df,
@@ -209,20 +177,21 @@ plot.drug_effects <- function(x, y, ..., color = 'blue') {
 
 median_effect_plot <- function(...) {
   # takes an arbitrary number of drug_effect objects
-  # [ ] do something about combination names
+  # [ ] assign labels if empty
+  # [ ] fix so does not re-order the drugs alphabetically
   df <- data.frame()
   for (d in list(...)) {
     if (inherits(d, "drug_effects")) {
-      df <- rbind(df, data.frame(list(log_D = d$log_D, log_fa_fu = d$log_fa_fu, name = d$name), stringsAsFactors = FALSE))
+      df <- rbind(df, data.frame(list(log_D = d$log_D, log_fa_fu = d$log_fa_fu, label = d$label), stringsAsFactors = FALSE))
     }
   }
-  ggplot2::ggplot(data = df, ggplot2::aes(log_D, log_fa_fu, shape = name, color = name)) +
+  ggplot2::ggplot(data = df, ggplot2::aes(log_D, log_fa_fu, shape = label, color = label)) +
     ggplot2::geom_point() +
     ggplot2::stat_smooth(method = "lm", se = FALSE, fullrange=TRUE) # fullrange allows extrapolation of line beyond the data points
 }
 
 dose_effect_plot <- function(..., from = 0.01, to = 0.99, by = 0.01) {
-
+  # takes an arbitrary number of drug_effect objects
   df_lines <- data.frame()
   df_points <- data.frame()
   for (d in list(...)) {
@@ -235,18 +204,18 @@ dose_effect_plot <- function(..., from = 0.01, to = 0.99, by = 0.01) {
   list(df_lines, df_points)
 }
 
-  m  <- drug$m
-  Dm <- drug$Dm
-
-  fa <- seq(from = from, to = to, by = by)
-  df2 <- data.frame(list(D = calc_d(fa, m, Dm), fa = fa))
-  g <- ggplot2::ggplot(data = df2, ggplot2::aes(D, fa)) +
-    ggplot2::geom_line() +
-    ggplot2::geom_point(data = df, ggplot2::aes(D, fa)) +
-    ggplot2::coord_cartesian(ylim = c(0,1))
-
-  g
-}
+#   m  <- drug$m
+#   Dm <- drug$Dm
+#
+#   fa <- seq(from = from, to = to, by = by)
+#   df2 <- data.frame(list(D = calc_d(fa, m, Dm), fa = fa))
+#   g <- ggplot2::ggplot(data = df2, ggplot2::aes(D, fa)) +
+#     ggplot2::geom_line() +
+#     ggplot2::geom_point(data = df, ggplot2::aes(D, fa)) +
+#     ggplot2::coord_cartesian(ylim = c(0,1))
+#
+#   g
+# }
 
 
 fa_ci_plot <- function(drug1, drug2, drug_combo, from = 0.01, to = 0.99, by = 0.01) {
@@ -295,17 +264,12 @@ fa_ci_plot <- function(drug1, drug2, drug_combo, from = 0.01, to = 0.99, by = 0.
 # )
 
 
+# Standard test example
 D  <- c(0.10, 0.15, 0.20, 0.25, 0.35)
 fa <- c(0.24, 0.44, 0.63, 0.81, 0.90)
-
-d <- drug_effects(D = D, fa = fa, name = 'Drug name', units = 'mg')
-d
-
-d2 <- drug_effects(D = D, fa = fa, name = 'DrugOne', units = 'mg', ratio = 3, name2 = "DrugTwo")
-
+d <- drug_effects(D = D, fa = fa, name = 'Drug One', label = 'drug1')
+d # print(d)
 plot(d)
-
-dose_effect_plot(d)
 
 # str(d)
 # class(d)
@@ -314,15 +278,19 @@ dose_effect_plot(d)
 
 
 # Taxol
-drug1 <- drug_effects(D = c(0.002, 0.004, 0.005, 0.01, 0.02), fa = c(0.429, 0.708, 0.761, 0.882, 0.932), name = "Taxol", units = "uM")
+drug1 <- drug_effects(D = c(0.002, 0.004, 0.005, 0.01, 0.02), fa = c(0.429, 0.708, 0.761, 0.882, 0.932), name = "Taxol", label = "taxol")
 
 # Cis-Pt
-drug2 <- drug_effects(D = c(0.05, 0.1, 0.2, 0.5, 1, 2), fa = c(0.055, 0.233, 0.301, 0.559, 0.821, 0.953), name = "Cis-Pt", units = "uM")
+drug2 <- drug_effects(D = c(0.05, 0.1, 0.2, 0.5, 1, 2), fa = c(0.055, 0.233, 0.301, 0.559, 0.821, 0.953), name = "Cisplatin", label = "cis-pt")
 
 # Taxol:Cis-Pt Combo, ratio = 0.1
-# drug_combo <- drug_effects(D = c(0.11, 0.22, 0.55, 1.1), fa = c(0.45, 0.671, 0.921, 0.958), ratio = 0.1)
-
-drug_combo <- drug_effects(D = c(0.001, 0.002, 0.005, 0.01) + c(0.1, 0.2, 0.5, 1), fa = c(0.45, 0.671, 0.921, 0.958), name = 'combo', ratio = 0.01)
+# MISTAKE: drug_combo <- drug_effects(D = c(0.11, 0.22, 0.55, 1.1), fa = c(0.45, 0.671, 0.921, 0.958), ratio = 0.1)
+drug_combo <- drug_effects(
+  D = c(0.001, 0.002, 0.005, 0.01) + c(0.1, 0.2, 0.5, 1),
+  fa = c(0.45, 0.671, 0.921, 0.958),
+  name = 'Taxol - Cisplatin',
+  label = 'combo',
+  ratio = 0.01)
 
 calc_CI(drug1, drug2, drug_combo, fa = c(0.5, 0.75, 0.9, 0.95))
 
