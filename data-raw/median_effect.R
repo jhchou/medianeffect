@@ -211,6 +211,7 @@ dose_effect_plot <- function(..., from = 0.01, to = 0.99, by = 0.01) {
   df_points$label <- factor(df_points$label, levels = labels)
 
   # Generate curves from m, Dm in df_lines
+  # - generate a cartesian product with all fa levels, for each drug, by doing a join on a dummy variable (probably a better way)
   df_lines$dummy <- 'dummy'
   df2 <- data.frame(list(fa = seq(from = from, to = to, by = by), dummy = 'dummy'), stringsAsFactors = FALSE)
   df_lines <- dplyr::left_join(df_lines, df2, by = 'dummy')
