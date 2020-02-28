@@ -10,3 +10,5 @@ Description: Facilitate analysis of single and multiple drug
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
+URL: https://github.com/jhchou/medianeffect
+BugReports: https://github.com/jhchou/medianeffect/issues
