@@ -111,11 +111,11 @@ validate_drug_effects <- function(x) {
 #'
 drug_effects <- function(D = double(), fa = double(), name = "", label = "", info = "", ratio = double()) {
   D <- as.double(D)
-  fa = as.double(fa)
-  name = as.character(name)
-  label = as.character(label)
-  info = as.character(info)
-  ratio = as.double(ratio)
+  fa <- as.double(fa)
+  name <- as.character(name)
+  label <- as.character(label)
+  info <- as.character(info)
+  ratio <- as.double(ratio)
   validate_drug_effects(new_drug_effects(D, fa, name, label, info, ratio))
 }
 
@@ -245,10 +245,7 @@ plot.drug_effects <- function(x, y, ..., color = 'blue') {
 
   df <- data.frame(list(D = x$D, fa = x$fa, log_D = x$log_D, log_fa_fu = x$log_fa_fu))
 
-  g <- ggplot2::ggplot(
-    data = df,
-    ggplot2::aes(.data$log_D, .data$log_fa_fu)
-  ) +
+  g <- ggplot2::ggplot(data = df, ggplot2::aes(.data$log_D, .data$log_fa_fu)) +
     ggplot2::geom_point() +
     ggplot2::stat_smooth(method = "lm", color = color) +
     ggplot2::xlab("log (D)") +
@@ -300,6 +297,7 @@ median_effect_plot <- function(...) {
 #' @param to End of range of fa
 #' @param by Step size of fa
 #' @importFrom rlang .data
+#' @importFrom dplyr %>% left_join mutate
 #' @export
 dose_effect_plot <- function(..., from = 0.01, to = 0.99, by = 0.01) {
   # takes an arbitrary number of drug_effect objects
@@ -323,8 +321,9 @@ dose_effect_plot <- function(..., from = 0.01, to = 0.99, by = 0.01) {
   # - generate a cartesian product with all fa levels, for each drug, by doing a join on a dummy variable (probably a better way)
   df_lines$dummy <- 'dummy'
   df2 <- data.frame(list(fa = seq(from = from, to = to, by = by), dummy = 'dummy'), stringsAsFactors = FALSE)
-  df_lines <- dplyr::left_join(df_lines, df2, by = 'dummy')
-  df_lines <- dplyr::mutate(df_lines, D = .data$Dm*(.data$fa / (1 - .data$fa))^(1/.data$m))
+  df_lines <- df_lines %>%
+    left_join(df2, by = 'dummy') %>%
+    mutate(D = .data$Dm*(.data$fa / (1 - .data$fa))^(1/.data$m))
 
   g <- ggplot2::ggplot(df_lines, ggplot2::aes(.data$D, .data$fa, color = .data$label)) +
     ggplot2::geom_line() +
