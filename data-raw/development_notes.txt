@@ -7,6 +7,8 @@ devtools::install_github("jhchou/medianeffect", build_vignettes = TRUE)
 
 library(medianeffect)
 vignette('medianeffect')
+help(package = medianeffect)
+
 
 Package vignettes:
 - http://r-pkgs.had.co.nz/vignettes.html#vignette-workflow-2

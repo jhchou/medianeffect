@@ -316,7 +316,7 @@ print.drug_effects <- function(x, ..., stats = TRUE) {
 
   # Additional processing for constant ratio combination drug effects
   if (inherits(x, "combo_drug_effects")) {
-    cat('\nDrug ratio:', paste(ratio, collapse = ":"))
+    cat('\nDrug ratio:', paste(signif(ratio / min(ratio), 4), collapse = " : "))
     f <- function(D, fa, ratio) {
       # Function for pmap to iterate over dataframe of rows of D and fa
       # - returns a WIDE format dataframe row with D, fa, and a column for each drug portion
