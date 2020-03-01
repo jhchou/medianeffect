@@ -24,7 +24,7 @@ new_drug_effects(
 
 \item{info}{Longer description (optional)}
 
-\item{ratio}{If present, specify constant ratio of drug1/drug2 doses}
+\item{ratio}{If present, specifies vector of ratio of each drug in constant ratio combinations}
 }
 \description{
 Internal constructor function to generate a drug_effects object, for single drugs and constant ratio combinations.

@@ -12,7 +12,7 @@
 # - drug name (name) - full name of tested drug
 # - label (label)    - label to use on plots
 # - info (info)      - additional information
-# - ratio: drug 1 / drug 2 (ratio), only defined for constant ratio drug combinations
+# - ratio: vector of ratio of each drug in constant ratio combinations
 # - Calculated: Dm, m, R^2, R, log10(D), log10(fa / (1-fa))
 #
 # Combination drug series, NON-constant ratio
@@ -34,13 +34,20 @@
 #' @param name Long name of drug (optional)
 #' @param label Short label of drug (for plot labels, optional)
 #' @param info Longer description (optional)
-#' @param ratio If present, specify constant ratio of drug1/drug2 doses
+#' @param ratio If present, specifies vector of ratio of each drug in constant ratio combinations
 #'
 new_drug_effects <- function(D = double(), fa = double(), name = "", label = "", info = "", ratio = double()) {
   stopifnot(is.double(D), is.double(fa), is.double(ratio))
-  values <- list(D = D, fa = fa, name = name, label = label, info = info, ratio = ratio)
   class <- c("drug_effects")
-  if (length(ratio) != 0) { class <- append("combo_drug_effects", class) }
+  if (length(ratio) != 0) {
+    # ratio should either be length 0 for single-drug, or else length = # of drugs
+    if (length(ratio) == 1) {
+      # allow shorthand of entering just ratio to refer to ratio:1 for 2-drug combination
+      ratio <- c(ratio, 1.0)
+    }
+    class <- append("combo_drug_effects", class)
+  }
+  values <- list(D = D, fa = fa, name = name, label = label, info = info, ratio = ratio)
   structure(values, class = class)
 }
 
@@ -71,8 +78,7 @@ validate_drug_effects <- function(x) {
   if (length(D) < 2) { stop("There must be at least two dose / fraction affected points", call. = FALSE) }
 
   if (length(ratio) != 0) {
-    if (length(ratio) != 1) { stop("Only a single constant ratio can be used", call. = FALSE) }
-    if (ratio < 0) { stop("The ratio of drug1 / drug2 must be non-negative", call. = FALSE) }
+    if (!all(ratio > 0)) { stop("The drug ratio components must all be positive", call. = FALSE) }
   }
 
   # Do the statistical calculations; add more elements to x
@@ -102,7 +108,7 @@ validate_drug_effects <- function(x) {
 #' @param name Long name of drug (optional)
 #' @param label Short label of drug (for plot labels, optional)
 #' @param info Longer description (optional)
-#' @param ratio If present, specify constant ratio of drug1/drug2 doses
+#' @param ratio If present, specifies vector of ratio of each drug in constant ratio combinations
 #' @export
 #' @examples
 #' D  <- c(0.10, 0.15, 0.20, 0.25, 0.35)
@@ -155,36 +161,35 @@ calc_D <- function(drug, fa) {
 
 
 
-#' Calculate combination index (CI)
+#' Function to decompose a drug_combo drug effects object into its component drug doses
 #'
-#' Given drug 1, drug 2, and drug_combo objects, calculate combination index CI at vector of fa values.
-#' If fa is empty, then use the actual fa and actual doses in drug_combo.
-#'
-#' @param drug1 Drug effect object
-#' @param drug2 Drug effect object
-#' @param drug_combo Drug effect fixed-ratio combination object
-#' @param fa Vector of fraction affected (fa) at which combination indices (CI) will be calculated (optional)
+#' @param drug_combo A fixed-ratio combination drug-effects object
+#' @importFrom dplyr %>% mutate row_number
+#' @importFrom tidyr pivot_wider
+#' @importFrom purrr pmap_dfr
+#' @importFrom rlang .data
 #' @export
-#'
-calc_CI <- function(drug1, drug2, drug_combo, fa = double()) {
-  # [ ] should do class checking here
+drug_combo_decompose <- function(drug_combo) {
+  if (!inherits(drug_combo, "combo_drug_effects")) { stop("Requires a fixed-ratio combination drug effects object", call. = FALSE) }
+
+  D <- drug_combo$D
+  fa <- drug_combo$fa
   ratio <- drug_combo$ratio
+  df <- data.frame(list(D = D, fa = fa))
 
-  if (length(fa) == 0) {
-    fa <- drug_combo$fa # the actual fa observed in the combo
-    D_combo <- drug_combo$D # actual doses
-  } else {
-    D_combo <- calc_D(drug_combo, fa) # calculate predicted doses
+  f <- function(D, fa, ratio) {
+    # Function for pmap to iterate over dataframe of rows of D and fa
+    # - returns a WIDE format dataframe row with D, fa, and a column for each drug portion
+    # - D and fa are a single number (because receiving one row at a time)
+    # - ratio is a vector
+    data.frame(D = D, fa = fa, dose_portion = D * ratio / sum(ratio)) %>%
+      mutate(drug = row_number()) %>%
+      pivot_wider(names_from = .data$drug, values_from = .data$dose_portion, names_prefix = "drug_")
   }
-  D1 <- D_combo * (ratio / (ratio + 1))
-  D2 <- D_combo / (ratio + 1)
-
-  Dx1 <- calc_D(drug1, fa)
-  Dx2 <- calc_D(drug2, fa)
-
-  CI <- (D1 / Dx1) + (D2 / Dx2)
-  return(CI)
+  pmap_dfr(df, f, ratio)
 }
+
+
 
 
 #' Print method for objects of drug_effects class
@@ -192,6 +197,9 @@ calc_CI <- function(drug1, drug2, drug_combo, fa = double()) {
 #' @param x A drug_effects object
 #' @param ... (not used)
 #' @param stats Boolean for whether to display calculated m, Dm, R^2, and R
+#' @importFrom dplyr %>% mutate row_number
+#' @importFrom tidyr pivot_wider
+#' @importFrom purrr pmap_dfr
 #' @export
 #'
 print.drug_effects <- function(x, ..., stats = TRUE) {
@@ -208,24 +216,30 @@ print.drug_effects <- function(x, ..., stats = TRUE) {
 
   cat(name, label, info, sep = '')
 
-  # If want to also include columns of log(D) and log(fa / fu)
-  # df <- data.frame(list(D = D, fa = fa, log_D = x$log_D, log_fa_fu = x$log_fa_fu))
-
   df <- data.frame(list(D = D, fa = fa))
-  if (length(ratio) != 0) {
-    cat("\n\nRatio (drug 1/drug 2): ", ratio, sep = '')
-    D1 <- (ratio / (ratio+1)) * D
-    D2 <- D / (ratio + 1)
-    df$D1 <- D1
-    df$D2 <- D2
-    # For combination, also show the contributing doses from drug 1 + 2, and not just the sum
-    Dm <- paste0(signif(Dm, 4), ' = ', signif((ratio / (ratio+1)) * Dm, 4), ' + ', signif(Dm / (ratio + 1), 4))
+
+  # Additional processing for constant ratio combination drug effects
+  if (inherits(x, "combo_drug_effects")) {
+    cat('\nDrug ratio:', paste(ratio, collapse = ":"))
+    f <- function(D, fa, ratio) {
+      # Function for pmap to iterate over dataframe of rows of D and fa
+      # - returns a WIDE format dataframe row with D, fa, and a column for each drug portion
+      # - D and fa are a single number (because receiving one row at a time)
+      # - ratio is a vector
+      data.frame(D = D, fa = fa, dose_portion = signif(D * ratio / sum(ratio), 4)) %>%
+        mutate(drug = row_number()) %>%
+        pivot_wider(names_from = .data$drug, values_from = .data$dose_portion, names_prefix = "drug_")
+    }
+    df <- pmap_dfr(df, f, ratio)
   }
 
   print(knitr::kable(df))
 
+  # [ ] To do: for combination Dm, also show the contributing doses from drug 1 + 2, and not just the sum
+  # - use signif(Dm, 4)
   if (stats) { cat('\nm: ', x$m, '\nDm: ', Dm, '\nR2: ', x$R2, '\nR: ', x$R, sep = '') }
 }
+
 
 
 
@@ -254,6 +268,45 @@ plot.drug_effects <- function(x, y, ..., color = 'blue') {
 
   g
 }
+
+
+
+
+
+#' Calculate combination index (CI)
+#'
+#' Given drug 1, drug 2, and drug_combo objects, calculate combination index CI at vector of fa values.
+#' If fa is empty, then use the actual fa and actual doses in drug_combo.
+#'
+#' @param drug1 Drug effect object
+#' @param drug2 Drug effect object
+#' @param drug_combo Drug effect fixed-ratio combination object
+#' @param fa Vector of fraction affected (fa) at which combination indices (CI) will be calculated (optional)
+#' @export
+#'
+#
+# [ ] need to refactor to take any number of single drug objects and ratio as a vector
+
+calc_CI <- function(drug1, drug2, drug_combo, fa = double()) {
+  # [ ] should do class checking here
+  ratio <- drug_combo$ratio
+
+  if (length(fa) == 0) {
+    fa <- drug_combo$fa # the actual fa observed in the combo
+    D_combo <- drug_combo$D # actual doses
+  } else {
+    D_combo <- calc_D(drug_combo, fa) # calculate predicted doses
+  }
+  D1 <- D_combo * (ratio / (ratio + 1))
+  D2 <- D_combo / (ratio + 1)
+
+  Dx1 <- calc_D(drug1, fa)
+  Dx2 <- calc_D(drug2, fa)
+
+  CI <- (D1 / Dx1) + (D2 / Dx2)
+  return(CI)
+}
+
 
 
 #' Generate Median-Effect Plot

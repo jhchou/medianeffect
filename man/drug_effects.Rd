@@ -24,7 +24,7 @@ drug_effects(
 
 \item{info}{Longer description (optional)}
 
-\item{ratio}{If present, specify constant ratio of drug1/drug2 doses}
+\item{ratio}{If present, specifies vector of ratio of each drug in constant ratio combinations}
 }
 \description{
 Function to create a drug_effects object, either for a single drug or fixed-ratio combination of 2 drugs
