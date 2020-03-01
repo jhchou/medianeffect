@@ -73,7 +73,9 @@ combo_1_2_3 <- drug_effects(
   ratio = c(0.001, 0.1, 0.01))
 combo_1_2_3
 
-median_effect_plot(drug1, drug2, drug3, combo_1_2, combo_1_3, combo_2_3,combo_1_2_3)
+median_effect_plot(drug1, drug2, drug3, combo_1_2, combo_1_3, combo_2_3, combo_1_2_3)
+
+median_effect_plot(drug1, drug2, combo_1_2)
 
 dose_effect_plot(drug1, drug2, drug3, combo_1_2, combo_1_3, combo_2_3,combo_1_2_3)
 dose_effect_plot(drug1, drug2, drug3, combo_1_2, combo_1_3, combo_2_3,combo_1_2_3) +
@@ -106,3 +108,8 @@ calc_CI(combo_1_2_3, drug1, drug2, drug3, fa = c(0.5, 0.75, 0.9, 0.95))
 
 calc_DRI(combo_1_2_3, drug1, drug2, drug3, fa = c(0.5, 0.75, 0.9, 0.95))
 
+
+
+f <- function(...) {
+  all(map_lgl(list(...), inherits, "drug_effects"))
+}

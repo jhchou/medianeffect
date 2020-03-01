@@ -205,6 +205,8 @@ drug_combo_decompose <- function(drug_combo) {
 calc_combo <- function(drug_combo, ..., fa = double()) {
 
   if (!inherits(drug_combo, "combo_drug_effects")) { stop("Requires a fixed-ratio combination drug effects object", call. = FALSE) }
+  if (!all(purrr::map_lgl(list(...), inherits, "drug_effects"))) { stop("Some objects not drug effects objects", call. = FALSE) }
+  if (length(list(...)) != length(drug_combo$ratio)) { stop("Different number of drugs in ratio and single drug effects objects", call. = FALSE) }
 
   drug_effect_list <- function(...) {
     purrr::map_dfr(list(...), function(x) { data.frame(m = x$m, Dm = x$Dm) }) %>%
@@ -256,11 +258,15 @@ calc_combo <- function(drug_combo, ..., fa = double()) {
 #' @export
 #'
 calc_CI <- function(drug_combo, ..., fa = double()) {
-   calc_combo(drug_combo = drug_combo, ..., fa = fa) %>%
-      dplyr::group_by(.data$D_combo, .data$fa, .data$id) %>%
-      dplyr::summarize(CI = sum(.data$dose_combo / .data$dose_single)) %>%
-      dplyr::ungroup() %>%
-      dplyr::select(-.data$id)
+  if (!inherits(drug_combo, "combo_drug_effects")) { stop("Requires a fixed-ratio combination drug effects object", call. = FALSE) }
+  if (!all(purrr::map_lgl(list(...), inherits, "drug_effects"))) { stop("Some objects not drug effects objects", call. = FALSE) }
+  if (length(list(...)) != length(drug_combo$ratio)) { stop("Different number of drugs in ratio and single drug effects objects", call. = FALSE) }
+
+  calc_combo(drug_combo = drug_combo, ..., fa = fa) %>%
+    dplyr::group_by(.data$D_combo, .data$fa, .data$id) %>%
+    dplyr::summarize(CI = sum(.data$dose_combo / .data$dose_single)) %>%
+    dplyr::ungroup() %>%
+    dplyr::select(-.data$id)
 }
 
 
@@ -280,7 +286,11 @@ calc_CI <- function(drug_combo, ..., fa = double()) {
 #' @export
 #'
 calc_DRI <- function(drug_combo, ..., fa = double()) {
-   calc_combo(drug_combo = drug_combo, ..., fa = fa) %>%
+  if (!inherits(drug_combo, "combo_drug_effects")) { stop("Requires a fixed-ratio combination drug effects object", call. = FALSE) }
+  if (!all(purrr::map_lgl(list(...), inherits, "drug_effects"))) { stop("Some objects not drug effects objects", call. = FALSE) }
+  if (length(list(...)) != length(drug_combo$ratio)) { stop("Different number of drugs in ratio and single drug effects objects", call. = FALSE) }
+
+  calc_combo(drug_combo = drug_combo, ..., fa = fa) %>%
     dplyr::group_by(.data$fa, .data$id, .data$drug) %>%
     dplyr::summarise(dri = .data$dose_single / .data$dose_combo) %>%
     dplyr::ungroup() %>%
@@ -381,6 +391,8 @@ plot.drug_effects <- function(x, y, ..., color = 'blue') {
 #' @importFrom rlang .data
 #' @export
 median_effect_plot <- function(...) {
+  if (!all(purrr::map_lgl(list(...), inherits, "drug_effects"))) { stop("Some objects not drug effects objects", call. = FALSE) }
+
   df <- data.frame()
   i <- 0
   for (d in list(...)) {
@@ -415,7 +427,8 @@ median_effect_plot <- function(...) {
 #' @importFrom dplyr %>%
 #' @export
 dose_effect_plot <- function(..., from = 0.01, to = 0.99, by = 0.01) {
-  # takes an arbitrary number of drug_effect objects
+  if (!all(purrr::map_lgl(list(...), inherits, "drug_effects"))) { stop("Some objects not drug effects objects", call. = FALSE) }
+
   df_lines <- data.frame()
   df_points <- data.frame()
 
@@ -463,6 +476,10 @@ dose_effect_plot <- function(..., from = 0.01, to = 0.99, by = 0.01) {
 #' @importFrom rlang .data
 #' @export
 fa_ci_plot <- function(drug_combo, ..., from = 0.01, to = 0.99, by = 0.01) {
+  if (!inherits(drug_combo, "combo_drug_effects")) { stop("Requires a fixed-ratio combination drug effects object", call. = FALSE) }
+  if (!all(purrr::map_lgl(list(...), inherits, "drug_effects"))) { stop("Some objects not drug effects objects", call. = FALSE) }
+  if (length(list(...)) != length(drug_combo$ratio)) { stop("Different number of drugs in ratio and single drug effects objects", call. = FALSE) }
+
   g <- calc_CI(drug_combo, ..., fa = seq(from, to, by)) %>%
     ggplot2::ggplot(ggplot2::aes(.data$fa, .data$CI)) +
     ggplot2::geom_line() +
@@ -487,6 +504,9 @@ fa_ci_plot <- function(drug_combo, ..., from = 0.01, to = 0.99, by = 0.01) {
 #' @importFrom rlang .data
 #' @export
 fa_dri_plot <- function(drug_combo, ..., from = 0.01, to = 0.99, by = 0.01) {
+  if (!inherits(drug_combo, "combo_drug_effects")) { stop("Requires a fixed-ratio combination drug effects object", call. = FALSE) }
+  if (!all(purrr::map_lgl(list(...), inherits, "drug_effects"))) { stop("Some objects not drug effects objects", call. = FALSE) }
+  if (length(list(...)) != length(drug_combo$ratio)) { stop("Different number of drugs in ratio and single drug effects objects", call. = FALSE) }
 
   df_points <- calc_DRI(drug_combo, ...) %>%
     tidyr::pivot_longer(names_to = 'drug', values_to = 'DRI', cols = tidyselect::contains('dri_drug_'), names_prefix = 'dri_')
