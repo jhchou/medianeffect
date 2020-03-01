@@ -231,6 +231,8 @@ print.drug_effects <- function(x, ..., stats = TRUE) {
         pivot_wider(names_from = .data$drug, values_from = .data$dose_portion, names_prefix = "drug_")
     }
     df <- pmap_dfr(df, f, ratio)
+
+    Dm <- paste0(signif(Dm, 4), ' = ', paste0(signif(Dm * ratio / sum(ratio), 4), collapse = ' + '))
   }
 
   print(knitr::kable(df))
