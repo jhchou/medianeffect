@@ -164,9 +164,7 @@ calc_D <- function(drug, fa) {
 #' Function to decompose a drug_combo drug effects object into its component drug doses
 #'
 #' @param drug_combo A fixed-ratio combination drug-effects object
-#' @importFrom dplyr %>% mutate row_number
-#' @importFrom tidyr pivot_wider
-#' @importFrom purrr pmap_dfr
+#' @importFrom dplyr %>%
 #' @importFrom rlang .data
 #' @export
 drug_combo_decompose <- function(drug_combo) {
@@ -183,12 +181,112 @@ drug_combo_decompose <- function(drug_combo) {
     # - D and fa are a single number (because receiving one row at a time)
     # - ratio is a vector
     data.frame(D = D, fa = fa, dose_portion = D * ratio / sum(ratio)) %>%
-      mutate(drug = row_number()) %>%
-      pivot_wider(names_from = .data$drug, values_from = .data$dose_portion, names_prefix = "drug_")
+      dplyr::mutate(drug = dplyr::row_number()) %>%
+      tidyr::pivot_wider(names_from = .data$drug, values_from = .data$dose_portion, names_prefix = "drug_")
   }
-  pmap_dfr(df, f, ratio)
+  purrr::pmap_dfr(df, f, ratio)
 }
 
+
+#' Drug combination calculations
+#'
+#' Given drug_combo and arbitrary number of single-drug effect objects, calculate
+#' all parameters needed for later calculation of combination or dose reduction index,
+#' at either a vector of specified fa values or using actual doses / fa from drug_combo.
+#' Returns unique id, total dose in combination, fa, single drug doses needed for fa,
+#' and dose in the combination for each drug.
+#'
+#' @param drug_combo Drug effect fixed-ratio combination object
+#' @param ...  Drug effect objects
+#' @param fa Vector of fraction affected (fa) at which calculations will be made (optional)
+#' @importFrom rlang .data
+#' @export
+#'
+calc_combo <- function(drug_combo, ..., fa = double()) {
+
+  if (!inherits(drug_combo, "combo_drug_effects")) { stop("Requires a fixed-ratio combination drug effects object", call. = FALSE) }
+
+  drug_effect_list <- function(...) {
+    purrr::map_dfr(list(...), function(x) { data.frame(m = x$m, Dm = x$Dm) }) %>%
+      dplyr::mutate(drug = dplyr::row_number())
+  }
+
+  ratio <- drug_combo$ratio
+
+  # Generate dataframe of drug combination total doses and fa
+  # - columns: D_combo, fa, id
+  # - including id in case fa is non-unique for the actual dose / Fa
+  if (length(fa) == 0) { # use the actual doses and effects
+    D_combo <- drug_combo$D # actual doses
+    fa <- drug_combo$fa     # the actual fa observed in the combo
+  } else { # calculate the predicted doses for the list of given fa
+    D_combo <- calc_D(drug_combo, fa)
+  }
+  df_combo <- data.frame(D_combo = D_combo, fa = fa) %>% dplyr::mutate(id = dplyr::row_number())
+
+  # Generate dataframe of each drug of combination and m / Dm
+  df_drugs <- drug_effect_list(...)
+
+  df <- tidyr::crossing(df_combo, df_drugs) %>%
+    dplyr::left_join( # generate column of proportion of each drug in the combination
+      data.frame(proportion = ratio / sum(ratio)) %>% dplyr::mutate(drug = dplyr::row_number()),
+      by = 'drug') %>%
+    dplyr::mutate(
+      dose_single = (.data$Dm*(.data$fa / (1 - .data$fa))^(1/.data$m)), # calculate predicted single drug alone dose
+      dose_combo = D_combo * .data$proportion
+    ) %>%
+    dplyr::select(
+      .data$id, .data$D_combo, .data$fa, .data$drug, .data$dose_single, .data$dose_combo
+    )
+
+  return(df)
+}
+
+
+#' Calculate combination index (CI)
+#'
+#' Given drug_combo and arbitrary number of single-drug effect objects, calculate
+#' combination index at vector of fa values. If fa is empty, then use the actual fa
+#' and actual doses in drug_combo.
+#'
+#' @param drug_combo Drug effect fixed-ratio combination object
+#' @param ...  Drug effect objects
+#' @param fa Vector of fraction affected (fa) at which calculations will be made (optional)
+#' @importFrom rlang .data
+#' @export
+#'
+calc_CI <- function(drug_combo, ..., fa = double()) {
+   calc_combo(drug_combo = drug_combo, ..., fa = fa) %>%
+      dplyr::group_by(.data$D_combo, .data$fa, .data$id) %>%
+      dplyr::summarize(CI = sum(.data$dose_combo / .data$dose_single)) %>%
+      dplyr::ungroup() %>%
+      dplyr::select(-.data$id)
+}
+
+
+
+
+
+#' Calculate dose reduction index (DRI)
+#'
+#' Given drug_combo and arbitrary number of single-drug effect objects, calculate
+#' the dose reduction index for each drug at a vector of fa values. If fa is empty,
+#' then use the actual fa and actual doses in drug_combo.
+#'
+#' @param drug_combo Drug effect fixed-ratio combination object
+#' @param ...  Drug effect objects
+#' @param fa Vector of fraction affected (fa) at which calculations will be made (optional)
+#' @importFrom rlang .data
+#' @export
+#'
+calc_DRI <- function(drug_combo, ..., fa = double()) {
+   calc_combo(drug_combo = drug_combo, ..., fa = fa) %>%
+    dplyr::group_by(.data$fa, .data$id, .data$drug) %>%
+    dplyr::summarise(dri = .data$dose_single / .data$dose_combo) %>%
+    dplyr::ungroup() %>%
+    tidyr::pivot_wider(names_from = .data$drug, values_from = .data$dri, names_prefix = 'dri_drug_') %>%
+    dplyr::select(-.data$id)
+}
 
 
 
@@ -197,9 +295,7 @@ drug_combo_decompose <- function(drug_combo) {
 #' @param x A drug_effects object
 #' @param ... (not used)
 #' @param stats Boolean for whether to display calculated m, Dm, R^2, and R
-#' @importFrom dplyr %>% mutate row_number
-#' @importFrom tidyr pivot_wider
-#' @importFrom purrr pmap_dfr
+#' @importFrom dplyr %>%
 #' @export
 #'
 print.drug_effects <- function(x, ..., stats = TRUE) {
@@ -227,10 +323,10 @@ print.drug_effects <- function(x, ..., stats = TRUE) {
       # - D and fa are a single number (because receiving one row at a time)
       # - ratio is a vector
       data.frame(D = D, fa = fa, dose_portion = signif(D * ratio / sum(ratio), 4)) %>%
-        mutate(drug = row_number()) %>%
-        pivot_wider(names_from = .data$drug, values_from = .data$dose_portion, names_prefix = "drug_")
+        dplyr::mutate(drug = dplyr::row_number()) %>%
+        tidyr::pivot_wider(names_from = .data$drug, values_from = .data$dose_portion, names_prefix = "drug_")
     }
-    df <- pmap_dfr(df, f, ratio)
+    df <- purrr::pmap_dfr(df, f, ratio)
 
     Dm <- paste0(signif(Dm, 4), ' = ', paste0(signif(Dm * ratio / sum(ratio), 4), collapse = ' + '))
   }
@@ -275,42 +371,6 @@ plot.drug_effects <- function(x, y, ..., color = 'blue') {
 
 
 
-#' Calculate combination index (CI)
-#'
-#' Given drug 1, drug 2, and drug_combo objects, calculate combination index CI at vector of fa values.
-#' If fa is empty, then use the actual fa and actual doses in drug_combo.
-#'
-#' @param drug1 Drug effect object
-#' @param drug2 Drug effect object
-#' @param drug_combo Drug effect fixed-ratio combination object
-#' @param fa Vector of fraction affected (fa) at which combination indices (CI) will be calculated (optional)
-#' @export
-#'
-#
-# [ ] need to refactor to take any number of single drug objects and ratio as a vector
-
-calc_CI <- function(drug1, drug2, drug_combo, fa = double()) {
-  # [ ] should do class checking here
-  ratio <- drug_combo$ratio
-
-  if (length(fa) == 0) {
-    fa <- drug_combo$fa # the actual fa observed in the combo
-    D_combo <- drug_combo$D # actual doses
-  } else {
-    D_combo <- calc_D(drug_combo, fa) # calculate predicted doses
-  }
-  D1 <- D_combo * (ratio / (ratio + 1))
-  D2 <- D_combo / (ratio + 1)
-
-  Dx1 <- calc_D(drug1, fa)
-  Dx2 <- calc_D(drug2, fa)
-
-  CI <- (D1 / Dx1) + (D2 / Dx2)
-  return(CI)
-}
-
-
-
 #' Generate Median-Effect Plot
 #'
 #' Generates Median-Effect plots (as ggplot objects) for an arbitrary number of drug_effects objects
@@ -352,7 +412,7 @@ median_effect_plot <- function(...) {
 #' @param to End of range of fa
 #' @param by Step size of fa
 #' @importFrom rlang .data
-#' @importFrom dplyr %>% left_join mutate
+#' @importFrom dplyr %>%
 #' @export
 dose_effect_plot <- function(..., from = 0.01, to = 0.99, by = 0.01) {
   # takes an arbitrary number of drug_effect objects
@@ -377,8 +437,8 @@ dose_effect_plot <- function(..., from = 0.01, to = 0.99, by = 0.01) {
   df_lines$dummy <- 'dummy'
   df2 <- data.frame(list(fa = seq(from = from, to = to, by = by), dummy = 'dummy'), stringsAsFactors = FALSE)
   df_lines <- df_lines %>%
-    left_join(df2, by = 'dummy') %>%
-    mutate(D = .data$Dm*(.data$fa / (1 - .data$fa))^(1/.data$m))
+    dplyr::left_join(df2, by = 'dummy') %>%
+    dplyr::mutate(D = .data$Dm*(.data$fa / (1 - .data$fa))^(1/.data$m))
 
   g <- ggplot2::ggplot(df_lines, ggplot2::aes(.data$D, .data$fa, color = .data$label)) +
     ggplot2::geom_line() +
@@ -393,27 +453,52 @@ dose_effect_plot <- function(..., from = 0.01, to = 0.99, by = 0.01) {
 
 #' Generate fa-CI Plot
 #'
-#' Generates fa-CI plots (as ggplot objects) for a two-drug fixed-ratio combination
+#' Generates fa-CI plots (as ggplot objects) for a fixed-ratio combination
 #'
-#' @param drug1 Drug effect object
-#' @param drug2 Drug effect object
 #' @param drug_combo Drug effect fixed-ratio combination object
+#' @param ...  Drug effect objects
 #' @param from Start of range of fraction affected (fa)
 #' @param to End of range of fa
 #' @param by Step size of fa
+#' @importFrom rlang .data
 #' @export
-fa_ci_plot <- function(drug1, drug2, drug_combo, from = 0.01, to = 0.99, by = 0.01) {
-
-  fa <- seq(from = from, to = to, by = by)
-  CI = calc_CI(drug1, drug2, drug_combo, fa)
-  df <- data.frame(list(fa = fa, CI = CI))
-
-  df_points <- data.frame(list(fa = drug_combo$fa, CI = calc_CI(drug1, drug2, drug_combo)))
-
-  g <- ggplot2::ggplot(df, ggplot2::aes(fa, CI)) +
+fa_ci_plot <- function(drug_combo, ..., from = 0.01, to = 0.99, by = 0.01) {
+  g <- calc_CI(drug_combo, ..., fa = seq(from, to, by)) %>%
+    ggplot2::ggplot(ggplot2::aes(.data$fa, .data$CI)) +
     ggplot2::geom_line() +
+    ggplot2::geom_point(data = calc_CI(drug_combo, ...), ggplot2::aes(.data$fa, .data$CI)) +
     ggplot2::geom_hline(yintercept = 1.0, linetype = 'dotted') +
-    ggplot2::geom_point(data = df_points, ggplot2::aes(fa, CI)) +
+    ggplot2::xlab("fa") +
+    ggplot2::ylab("CI") +
     ggplot2::coord_cartesian(xlim = c(0,1))
   g
 }
+
+
+#' Generate fa-DRI Plot
+#'
+#' Generates fa-DRI plots (as ggplot objects) for a fixed-ratio combination
+#'
+#' @param drug_combo Drug effect fixed-ratio combination object
+#' @param ...  Drug effect objects
+#' @param from Start of range of fraction affected (fa)
+#' @param to End of range of fa
+#' @param by Step size of fa
+#' @importFrom rlang .data
+#' @export
+fa_dri_plot <- function(drug_combo, ..., from = 0.01, to = 0.99, by = 0.01) {
+
+  df_points <- calc_DRI(drug_combo, ...) %>%
+    tidyr::pivot_longer(names_to = 'drug', values_to = 'DRI', cols = tidyselect::contains('dri_drug_'), names_prefix = 'dri_')
+
+  g <- calc_DRI(drug_combo, ..., fa = seq(from, to, by)) %>%
+    tidyr::pivot_longer(names_to = 'drug', values_to = 'DRI', cols = tidyselect::contains('dri_drug_'), names_prefix = 'dri_') %>%
+    ggplot2::ggplot(ggplot2::aes(.data$fa, .data$DRI, color = .data$drug)) +
+    ggplot2::geom_line() +
+    ggplot2::geom_point(data = df_points, ggplot2::aes(.data$fa, .data$DRI, color = .data$drug, shape = .data$drug)) +
+    ggplot2::xlab("fa") +
+    ggplot2::ylab("DRI") +
+    ggplot2::labs(color = 'Drug', shape = 'Drug')
+  g
+}
+

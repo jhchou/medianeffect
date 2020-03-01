@@ -15,6 +15,7 @@ BugReports: https://github.com/jhchou/medianeffect/issues
 Imports:
     dplyr,
     tidyr,
+    tidyselect,
     purrr,
     ggplot2,
     knitr,
