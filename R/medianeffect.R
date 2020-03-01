@@ -209,7 +209,7 @@ calc_combo <- function(drug_combo, ..., fa = double()) {
   if (length(list(...)) != length(drug_combo$ratio)) { stop("Different number of drugs in ratio and single drug effects objects", call. = FALSE) }
 
   drug_effect_list <- function(...) {
-    purrr::map_dfr(list(...), function(x) { data.frame(m = x$m, Dm = x$Dm) }) %>%
+    purrr::map_dfr(list(...), function(x) { data.frame(m = x$m, Dm = x$Dm, label = x$label, stringsAsFactors = FALSE) }) %>%
       dplyr::mutate(drug = dplyr::row_number())
   }
 
@@ -396,11 +396,9 @@ median_effect_plot <- function(...) {
   df <- data.frame()
   i <- 0
   for (d in list(...)) {
-    if (inherits(d, "drug_effects")) {
-      i <- i + 1
-      if (d$label == '') { d$label <- paste('Drug', i) } # assign labels if empty
-      df <- rbind(df, data.frame(list(log_D = d$log_D, log_fa_fu = d$log_fa_fu, label = d$label), stringsAsFactors = FALSE))
-    }
+    i <- i + 1
+    if (d$label == '') { d$label <- paste('Drug', i) } # assign labels if empty
+    df <- rbind(df, data.frame(list(log_D = d$log_D, log_fa_fu = d$log_fa_fu, label = d$label), stringsAsFactors = FALSE))
   }
   df$label <- factor(df$label, levels = unique(df$label)) # prevent re-ordering of labels; `unique` appears to maintain order
   ggplot2::ggplot(data = df, ggplot2::aes(.data$log_D, .data$log_fa_fu, shape = .data$label, color = .data$label)) +
@@ -434,23 +432,19 @@ dose_effect_plot <- function(..., from = 0.01, to = 0.99, by = 0.01) {
 
   i <- 0
   for (d in list(...)) {
-    if (inherits(d, "drug_effects")) {
-      i <- i + 1
-      if (d$label == '') { d$label <- paste('Drug', i) } # assign labels if empty
-      df_lines  <- rbind(df_lines,  data.frame(list(label = d$label, m = d$m, Dm = d$Dm))) # dataframe with label, m, Dm
-      df_points <- rbind(df_points, data.frame(list(label = d$label, D = d$D, fa = d$fa))) # dataframe with label, D, fa
-    }
+    i <- i + 1
+    if (d$label == '') { d$label <- paste('Drug', i) } # assign labels if empty
+    df_lines  <- rbind(df_lines,  data.frame(list(label = d$label, m = d$m, Dm = d$Dm))) # dataframe with label, m, Dm
+    df_points <- rbind(df_points, data.frame(list(label = d$label, D = d$D, fa = d$fa))) # dataframe with label, D, fa
   }
   labels <- unique(df_lines$label) # prevent re-ordering of labels; `unique` appears to maintain order
   df_lines$label  <- factor(df_lines$label,  levels = labels)
   df_points$label <- factor(df_points$label, levels = labels)
 
   # Generate curves from m, Dm in df_lines
-  # - generate a cartesian product with all fa levels, for each drug, by doing a join on a dummy variable (probably a better way)
-  df_lines$dummy <- 'dummy'
-  df2 <- data.frame(list(fa = seq(from = from, to = to, by = by), dummy = 'dummy'), stringsAsFactors = FALSE)
+  # - generate a cartesian product with all fa levels, for each drug
   df_lines <- df_lines %>%
-    dplyr::left_join(df2, by = 'dummy') %>%
+    tidyr::crossing(data.frame(fa = seq(from = from, to = to, by = by))) %>%
     dplyr::mutate(D = .data$Dm*(.data$fa / (1 - .data$fa))^(1/.data$m))
 
   g <- ggplot2::ggplot(df_lines, ggplot2::aes(.data$D, .data$fa, color = .data$label)) +

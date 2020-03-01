@@ -107,9 +107,3 @@ calc_CI(combo_1_2_3, drug1, drug2, drug3)
 calc_CI(combo_1_2_3, drug1, drug2, drug3, fa = c(0.5, 0.75, 0.9, 0.95))
 
 calc_DRI(combo_1_2_3, drug1, drug2, drug3, fa = c(0.5, 0.75, 0.9, 0.95))
-
-
-
-f <- function(...) {
-  all(map_lgl(list(...), inherits, "drug_effects"))
-}
