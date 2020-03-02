@@ -116,7 +116,7 @@ median_effect_plot(drug1, drug2, drug_combo)
 ### Calculate combination index (CI) at specified fa levels
 
 ```{r}
-calc_CI(drug_combo, drug1, drug2, fa = c(0.5, 0.75, 0.9, 0.95))
+calc_ci(drug_combo, drug1, drug2, fa = c(0.5, 0.75, 0.9, 0.95))
 ```
 
 ### fa-CI plot

@@ -84,6 +84,7 @@ dose_effect_plot(drug1, drug2, drug3, combo_1_2, combo_1_3, combo_2_3,combo_1_2_
 fa_ci_plot(combo_1_2_3, drug1, drug2, drug3)
 
 fa_dri_plot(combo_1_2_3, drug1, drug2, drug3)
+fa_dri_plot(combo_1_2_3, drug1, drug2, drug3) + scale_y_continuous(trans='log10')
 
 drug1
 
@@ -92,18 +93,18 @@ drug2
 drug3
 
 combo_1_2
-calc_CI(combo_1_2, drug1, drug2)
+calc_ci(combo_1_2, drug1, drug2)
 
 combo_2_3
-calc_CI(combo_2_3, drug2, drug3)
+calc_ci(combo_2_3, drug2, drug3)
 
 combo_1_3
-calc_CI(combo_1_3, drug1, drug3)
+calc_ci(combo_1_3, drug1, drug3)
 
 combo_1_2_3
-calc_CI(combo_1_2, drug1, drug2, fa = c(0.5, 0.75, 0.9, 0.95))
+calc_ci(combo_1_2, drug1, drug2, fa = c(0.5, 0.75, 0.9, 0.95))
 
-calc_CI(combo_1_2_3, drug1, drug2, drug3)
-calc_CI(combo_1_2_3, drug1, drug2, drug3, fa = c(0.5, 0.75, 0.9, 0.95))
+calc_ci(combo_1_2_3, drug1, drug2, drug3)
+calc_ci(combo_1_2_3, drug1, drug2, drug3, fa = c(0.5, 0.75, 0.9, 0.95))
 
-calc_DRI(combo_1_2_3, drug1, drug2, drug3, fa = c(0.5, 0.75, 0.9, 0.95))
+calc_dri(combo_1_2_3, drug1, drug2, drug3, fa = c(0.5, 0.75, 0.9, 0.95))

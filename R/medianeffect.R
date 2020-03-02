@@ -152,7 +152,10 @@ calc_fa <- function(drug, D) {
 #' @param fa Vector of fraction affected (fa)
 #' @export
 #'
-calc_D <- function(drug, fa) {
+#
+# [ ] To consider: what about drug combination objects? break down by ratio and return dataframe?
+#
+calc_d <- function(drug, fa) {
   if (!inherits(drug, "drug_effects")) { stop("Requires a `drug_effects` object", call. = FALSE) }
   m <- drug$m
   Dm <- drug$Dm
@@ -208,11 +211,6 @@ calc_combo <- function(drug_combo, ..., fa = double()) {
   if (!all(purrr::map_lgl(list(...), inherits, "drug_effects"))) { stop("Some objects not drug effects objects", call. = FALSE) }
   if (length(list(...)) != length(drug_combo$ratio)) { stop("Different number of drugs in ratio and single drug effects objects", call. = FALSE) }
 
-  drug_effect_list <- function(...) {
-    purrr::map_dfr(list(...), function(x) { data.frame(m = x$m, Dm = x$Dm, label = x$label, stringsAsFactors = FALSE) }) %>%
-      dplyr::mutate(drug = dplyr::row_number())
-  }
-
   ratio <- drug_combo$ratio
 
   # Generate dataframe of drug combination total doses and fa
@@ -222,12 +220,15 @@ calc_combo <- function(drug_combo, ..., fa = double()) {
     D_combo <- drug_combo$D # actual doses
     fa <- drug_combo$fa     # the actual fa observed in the combo
   } else { # calculate the predicted doses for the list of given fa
-    D_combo <- calc_D(drug_combo, fa)
+    D_combo <- calc_d(drug_combo, fa)
   }
   df_combo <- data.frame(D_combo = D_combo, fa = fa) %>% dplyr::mutate(id = dplyr::row_number())
 
-  # Generate dataframe of each drug of combination and m / Dm
-  df_drugs <- drug_effect_list(...)
+  # Generate dataframe of each single drug's m / Dm / label
+  df_drugs <- list(...) %>%
+    purrr::map_dfr(function(x) { data.frame(m = x$m, Dm = x$Dm, label = x$label, stringsAsFactors = FALSE) }) %>%
+    dplyr::mutate(drug = dplyr::row_number()) %>%
+    dplyr::mutate(label = ifelse(.data$label == '', paste0('drug_', .data$drug), .data$label)) # fill in missing labels
 
   df <- tidyr::crossing(df_combo, df_drugs) %>%
     dplyr::left_join( # generate column of proportion of each drug in the combination
@@ -238,7 +239,7 @@ calc_combo <- function(drug_combo, ..., fa = double()) {
       dose_combo = D_combo * .data$proportion
     ) %>%
     dplyr::select(
-      .data$id, .data$D_combo, .data$fa, .data$drug, .data$dose_single, .data$dose_combo
+      .data$id, .data$D_combo, .data$fa, .data$drug, .data$label, .data$dose_single, .data$dose_combo
     )
 
   return(df)
@@ -257,7 +258,7 @@ calc_combo <- function(drug_combo, ..., fa = double()) {
 #' @importFrom rlang .data
 #' @export
 #'
-calc_CI <- function(drug_combo, ..., fa = double()) {
+calc_ci <- function(drug_combo, ..., fa = double()) {
   if (!inherits(drug_combo, "combo_drug_effects")) { stop("Requires a fixed-ratio combination drug effects object", call. = FALSE) }
   if (!all(purrr::map_lgl(list(...), inherits, "drug_effects"))) { stop("Some objects not drug effects objects", call. = FALSE) }
   if (length(list(...)) != length(drug_combo$ratio)) { stop("Different number of drugs in ratio and single drug effects objects", call. = FALSE) }
@@ -285,7 +286,7 @@ calc_CI <- function(drug_combo, ..., fa = double()) {
 #' @importFrom rlang .data
 #' @export
 #'
-calc_DRI <- function(drug_combo, ..., fa = double()) {
+calc_dri <- function(drug_combo, ..., fa = double()) {
   if (!inherits(drug_combo, "combo_drug_effects")) { stop("Requires a fixed-ratio combination drug effects object", call. = FALSE) }
   if (!all(purrr::map_lgl(list(...), inherits, "drug_effects"))) { stop("Some objects not drug effects objects", call. = FALSE) }
   if (length(list(...)) != length(drug_combo$ratio)) { stop("Different number of drugs in ratio and single drug effects objects", call. = FALSE) }
@@ -337,14 +338,10 @@ print.drug_effects <- function(x, ..., stats = TRUE) {
         tidyr::pivot_wider(names_from = .data$drug, values_from = .data$dose_portion, names_prefix = "drug_")
     }
     df <- purrr::pmap_dfr(df, f, ratio)
-
     Dm <- paste0(signif(Dm, 4), ' = ', paste0(signif(Dm * ratio / sum(ratio), 4), collapse = ' + '))
   }
 
   print(knitr::kable(df))
-
-  # [ ] To do: for combination Dm, also show the contributing doses from drug 1 + 2, and not just the sum
-  # - use signif(Dm, 4)
   if (stats) { cat('\nm: ', x$m, '\nDm: ', Dm, '\nR2: ', x$R2, '\nR: ', x$R, sep = '') }
 }
 
@@ -474,10 +471,10 @@ fa_ci_plot <- function(drug_combo, ..., from = 0.01, to = 0.99, by = 0.01) {
   if (!all(purrr::map_lgl(list(...), inherits, "drug_effects"))) { stop("Some objects not drug effects objects", call. = FALSE) }
   if (length(list(...)) != length(drug_combo$ratio)) { stop("Different number of drugs in ratio and single drug effects objects", call. = FALSE) }
 
-  g <- calc_CI(drug_combo, ..., fa = seq(from, to, by)) %>%
+  g <- calc_ci(drug_combo, ..., fa = seq(from, to, by)) %>%
     ggplot2::ggplot(ggplot2::aes(.data$fa, .data$CI)) +
     ggplot2::geom_line() +
-    ggplot2::geom_point(data = calc_CI(drug_combo, ...), ggplot2::aes(.data$fa, .data$CI)) +
+    ggplot2::geom_point(data = calc_ci(drug_combo, ...), ggplot2::aes(.data$fa, .data$CI)) +
     ggplot2::geom_hline(yintercept = 1.0, linetype = 'dotted') +
     ggplot2::xlab("fa") +
     ggplot2::ylab("CI") +
@@ -502,14 +499,32 @@ fa_dri_plot <- function(drug_combo, ..., from = 0.01, to = 0.99, by = 0.01) {
   if (!all(purrr::map_lgl(list(...), inherits, "drug_effects"))) { stop("Some objects not drug effects objects", call. = FALSE) }
   if (length(list(...)) != length(drug_combo$ratio)) { stop("Different number of drugs in ratio and single drug effects objects", call. = FALSE) }
 
-  df_points <- calc_DRI(drug_combo, ...) %>%
-    tidyr::pivot_longer(names_to = 'drug', values_to = 'DRI', cols = tidyselect::contains('dri_drug_'), names_prefix = 'dri_')
+  # This next chunk of code is an ugly mess and should be refactored
+  # Create labels (if missing) and maintain order
+  # Store in a datframe to join the results of calc_dri from, which don't have labels
+  df_labels <- data.frame()
+  i <- 0
+  for (d in list(...)) {
+    i <- i + 1
+    if (d$label == '') { d$label <- paste0('drug_', i) } # assign labels if empty
+    df_labels  <- rbind(df_labels,  data.frame(list(drug = paste0('drug_', i), label = d$label), stringsAsFactors = FALSE))
+  }
+  labels <- unique(df_labels$label) # prevent re-ordering of labels; `unique` appears to maintain order
+  df_labels$label  <- factor(df_labels$label,  levels = labels)
 
-  g <- calc_DRI(drug_combo, ..., fa = seq(from, to, by)) %>%
+
+  df_points <- calc_dri(drug_combo, ...) %>%
     tidyr::pivot_longer(names_to = 'drug', values_to = 'DRI', cols = tidyselect::contains('dri_drug_'), names_prefix = 'dri_') %>%
-    ggplot2::ggplot(ggplot2::aes(.data$fa, .data$DRI, color = .data$drug)) +
+    dplyr::left_join(df_labels, by = 'drug')
+
+  df_lines <- calc_dri(drug_combo, ..., fa = seq(from, to, by)) %>%
+    tidyr::pivot_longer(names_to = 'drug', values_to = 'DRI', cols = tidyselect::contains('dri_drug_'), names_prefix = 'dri_') %>%
+    dplyr::left_join(df_labels, by = 'drug')
+
+  g <- df_lines %>%
+    ggplot2::ggplot(ggplot2::aes(.data$fa, .data$DRI, color = .data$label)) +
     ggplot2::geom_line() +
-    ggplot2::geom_point(data = df_points, ggplot2::aes(.data$fa, .data$DRI, color = .data$drug, shape = .data$drug)) +
+    ggplot2::geom_point(data = df_points, ggplot2::aes(.data$fa, .data$DRI, color = .data$label, shape = .data$label)) +
     ggplot2::xlab("fa") +
     ggplot2::ylab("DRI") +
     ggplot2::labs(color = 'Drug', shape = 'Drug')

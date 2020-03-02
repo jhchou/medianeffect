@@ -2,10 +2,10 @@
 
 S3method(plot,drug_effects)
 S3method(print,drug_effects)
-export(calc_CI)
-export(calc_D)
-export(calc_DRI)
+export(calc_ci)
 export(calc_combo)
+export(calc_d)
+export(calc_dri)
 export(calc_fa)
 export(dose_effect_plot)
 export(drug_combo_decompose)
