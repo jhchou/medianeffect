@@ -43,6 +43,16 @@ combo_1_2 <- drug_effects(
   ratio = c(0.001, 0.1))
 combo_1_2
 
+# Create a 'fake' non-constant ratio object for testing
+ncr_combo <- ncr_drug_effects(
+  c(0.001, 0.002, 0.005, 0.01),
+  c(0.1, 0.2, 0.5, 1),
+  fa = c(0.45, 0.701, 0.910, 0.968),
+  name='"NCR" Paclitaxel - Cisplatin',
+  label = 'ncr_combo_1_2'
+)
+calc_ci(combo_1_2, drug1, drug2)
+ncr_calc_ci(ncr_combo, drug1, drug2)
 
 # Cis-Pt:Topotecan Combo, ratio = 0.1
 combo_2_3 <- drug_effects(

@@ -125,6 +125,13 @@ calc_ci(drug_combo, drug1, drug2, fa = c(0.5, 0.75, 0.9, 0.95))
 fa_ci_plot(drug_combo, drug1, drug2, from = 0.05, to = 0.95)
 ```
 
+### Calculate dose reduction index (DRI) at specified fa levels
+
+```{r}
+calc_dri(drug_combo, drug1, drug2, fa = c(0.5, 0.75, 0.9, 0.95))
+```
+
+
 ### fa-DRI plot
 
 ```{r}

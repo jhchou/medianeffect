@@ -531,3 +531,132 @@ fa_dri_plot <- function(drug_combo, ..., from = 0.01, to = 0.99, by = 0.01) {
   g
 }
 
+
+
+#' Non-constant ratio drug effects object generator
+#'
+#' Function to generate a non-constant ratio drug_effects object
+#'
+#' @param ... Vectors of doses, one for each drug, with length equal to number of data points
+#' @param fa Vector of fraction affected
+#' @param name Name to describe set (optional)
+#' @param label Short label (optional)
+#' @param info Longer description (optional)
+#' @export
+#'
+ncr_drug_effects <- function(..., fa = double(), name = "", label = "", info = "") {
+
+  ### Validation ###
+  # - not checking for edge case of all doses equal to 0...
+  if (length(list(...)) == 0) { stop("Require at least one dose and effect point", call. = FALSE) }
+  if (!all(purrr::map_lgl(list(...), is.double))) { stop("Doses must be numeric", call. = FALSE) }
+  if (!all(purrr::map_lgl(list(...), function(x) {all(x >= 0)} ))) { stop("All doses must be greater than or equal to zero", call. = FALSE) }
+
+  # Check that all the dose vectors are of equal length
+  lengths <- purrr::map_int(list(...), length)
+  n <- min(lengths)
+  if (n != max(lengths)) { stop("Number of doses for each drug not all equal", call. = FALSE) }
+
+  # Check fa
+  if (!is.double(fa)) { stop("Fraction affected must be numeric", call. = FALSE) }
+  if (length(fa) != n) { stop("Number of fraction affected must equal number of doses", call. = FALSE) }
+  if (!all(fa > 0.0 & fa < 1.0)) { stop("All fraction affected `fa` must be greater than zero, and less than one", call. = FALSE) }
+
+  ### Generation ###
+
+  # Convert vectors of doses to dataframe
+  # - one row per point
+  # - one column per drug, named drug_#
+  dose_df <- data.frame(matrix(NA, nrow = n, ncol = length(list(...))))
+  i <- 0
+  for (d in list(...)) {
+    i <- i + 1
+    dose_df[i] <- d
+  }
+  names(dose_df) <- paste0('drug_', seq(1, length(list(...))))
+
+  values <- list(dose_df = dose_df, fa = fa, name = name, label = label, info = info)
+  structure(values, class = "ncr_drug_effects")
+}
+
+
+
+#' Print method for non-constant ratio drug_effects class
+#'
+#' @param x A non-constant ratio drug_effects object
+#' @param ... (not used)
+#' @export
+#'
+print.ncr_drug_effects <- function(x, ...) {
+  name <- x$name
+  label <- x$label
+  if (label != '') { label <- paste0(' (', label, ')') }
+  info <- x$info
+  if (info != '') { info <- paste0('\n\n', info) }
+
+  cat(name, label, info, sep = '')
+  print(knitr::kable(cbind(fa = x$fa, x$dose_df)))
+}
+
+
+
+
+#' Non-constant ratio drug combination calculations
+#'
+#' Given non-constant ratio drug effects object and an arbitrary number of single-drug effect
+#' objects, calculate all parameters needed for later calculation of combination index.
+#'
+#' @param ncr_combo Non-constant ratio combination drug effects object
+#' @param ...  Drug effect objects
+#' @importFrom rlang .data
+#' @export
+#'
+ncr_calc_combo <- function(ncr_combo, ...) {
+
+  if (!inherits(ncr_combo, "ncr_drug_effects")) { stop("Requires a non-constant ratio combination drug effects object", call. = FALSE) }
+  if (!all(purrr::map_lgl(list(...), inherits, "drug_effects"))) { stop("Some objects not drug effects objects", call. = FALSE) }
+  if (length(list(...)) != ncol(ncr_combo$dose_df)) { stop("Different number of drugs in combination and single drug effects objects", call. = FALSE) }
+
+  df_combo <- cbind(id = seq(1, nrow(ncr_combo$dose_df)), fa = ncr_combo$fa, ncr_combo$dose_df)
+
+  # Generate dataframe of each single drug's m / Dm / label
+  df_drugs <- list(...) %>%
+    purrr::map_dfr(function(x) { data.frame(m = x$m, Dm = x$Dm, label = x$label, stringsAsFactors = FALSE) }) %>%
+    dplyr::mutate(drug = paste0('drug_', dplyr::row_number())) %>%
+    dplyr::mutate(label = ifelse(.data$label == '', paste0('drug_', .data$drug), .data$label)) # fill in missing labels
+
+  # return(list(df_combo, df_drugs))
+
+  df <- df_combo %>%
+    tidyr::pivot_longer(tidyselect::contains('drug_'), names_to = 'drug', values_to = 'dose') %>%
+    dplyr::left_join(df_drugs, by = 'drug') %>%
+    dplyr::mutate(dose_single = (.data$Dm*(.data$fa / (1 - .data$fa))^(1/.data$m))) # calculate predicted single drug alone dose
+
+  return(df)
+}
+
+
+
+
+#' Calculate combination index (CI) for non-constant ratio
+#'
+#' Given non-constant ratio drug effects object and arbitrary number of single-drug
+#' effect objects, calculate combination index observed fa values.
+#'
+#' @param ncr_combo Non-constant ratio combination drug effects object
+#' @param ...  Drug effect objects
+#' @importFrom rlang .data
+#' @export
+#'
+ncr_calc_ci <- function(ncr_combo, ...) {
+
+  if (!inherits(ncr_combo, "ncr_drug_effects")) { stop("Requires a non-constant ratio combination drug effects object", call. = FALSE) }
+  if (!all(purrr::map_lgl(list(...), inherits, "drug_effects"))) { stop("Some objects not drug effects objects", call. = FALSE) }
+  if (length(list(...)) != ncol(ncr_combo$dose_df)) { stop("Different number of drugs in combination and single drug effects objects", call. = FALSE) }
+
+  ncr_calc_combo(ncr_combo = ncr_combo, ...) %>%
+    dplyr::group_by(.data$fa, .data$id) %>%
+    dplyr::summarize(CI = sum(.data$dose / .data$dose_single)) %>%
+    dplyr::ungroup() %>%
+    dplyr::select(-.data$id)
+}
