@@ -18,3 +18,14 @@ Package vignettes:
 
 Note devtools does not build vignettes by default when you devtools::install() (same thing for some install_* functions like install_github()) a package from a directory. You have to specify the argument build_vignettes = TRUE when you install the package. Currently there is no way to build vignettes using devtools if you just use the RStudio button Build & Reload. You have to Build Source Package, and run R CMD INSTALL on the tarball. Or run devtools::install(build_vignettes = TRUE) in the R console.
 
+
+To do:
+[ ] write readme
+[ ] make vignette available online
+
+Consider:
+[ ] isobologram
+[ ] load from Excel
+[ ] split code to multiple files
+[ ] export raw data calculations as CSV
+

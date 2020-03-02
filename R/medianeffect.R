@@ -214,32 +214,32 @@ calc_combo <- function(drug_combo, ..., fa = double()) {
   ratio <- drug_combo$ratio
 
   # Generate dataframe of drug combination total doses and fa
-  # - columns: D_combo, fa, id
+  # - columns: dose_total, fa, id
   # - including id in case fa is non-unique for the actual dose / Fa
   if (length(fa) == 0) { # use the actual doses and effects
-    D_combo <- drug_combo$D # actual doses
+    dose_total <- drug_combo$D # actual doses
     fa <- drug_combo$fa     # the actual fa observed in the combo
   } else { # calculate the predicted doses for the list of given fa
-    D_combo <- calc_d(drug_combo, fa)
+    dose_total <- calc_d(drug_combo, fa)
   }
-  df_combo <- data.frame(D_combo = D_combo, fa = fa) %>% dplyr::mutate(id = dplyr::row_number())
+  df_combo <- data.frame(dose_total = dose_total, fa = fa) %>% dplyr::mutate(id = dplyr::row_number())
 
   # Generate dataframe of each single drug's m / Dm / label
   df_drugs <- list(...) %>%
     purrr::map_dfr(function(x) { data.frame(m = x$m, Dm = x$Dm, label = x$label, stringsAsFactors = FALSE) }) %>%
-    dplyr::mutate(drug = dplyr::row_number()) %>%
-    dplyr::mutate(label = ifelse(.data$label == '', paste0('drug_', .data$drug), .data$label)) # fill in missing labels
+    dplyr::mutate(drug = paste0('drug_', dplyr::row_number())) %>%
+    dplyr::mutate(label = ifelse(.data$label == '', .data$drug, .data$label)) # fill in missing labels
 
   df <- tidyr::crossing(df_combo, df_drugs) %>%
     dplyr::left_join( # generate column of proportion of each drug in the combination
-      data.frame(proportion = ratio / sum(ratio)) %>% dplyr::mutate(drug = dplyr::row_number()),
+      data.frame(proportion = ratio / sum(ratio)) %>% dplyr::mutate(drug = paste0('drug_', dplyr::row_number())),
       by = 'drug') %>%
     dplyr::mutate(
       dose_single = (.data$Dm*(.data$fa / (1 - .data$fa))^(1/.data$m)), # calculate predicted single drug alone dose
-      dose_combo = D_combo * .data$proportion
+      dose_combo = .data$dose_total * .data$proportion
     ) %>%
     dplyr::select(
-      .data$id, .data$D_combo, .data$fa, .data$drug, .data$label, .data$dose_single, .data$dose_combo
+      .data$id, .data$fa, .data$drug, .data$label, .data$dose_combo, .data$dose_single, .data$m, .data$Dm
     )
 
   return(df)
@@ -264,7 +264,7 @@ calc_ci <- function(drug_combo, ..., fa = double()) {
   if (length(list(...)) != length(drug_combo$ratio)) { stop("Different number of drugs in ratio and single drug effects objects", call. = FALSE) }
 
   calc_combo(drug_combo = drug_combo, ..., fa = fa) %>%
-    dplyr::group_by(.data$D_combo, .data$fa, .data$id) %>%
+    dplyr::group_by(.data$fa, .data$id) %>%
     dplyr::summarize(CI = sum(.data$dose_combo / .data$dose_single)) %>%
     dplyr::ungroup() %>%
     dplyr::select(-.data$id)
@@ -295,7 +295,7 @@ calc_dri <- function(drug_combo, ..., fa = double()) {
     dplyr::group_by(.data$fa, .data$id, .data$drug) %>%
     dplyr::summarise(dri = .data$dose_single / .data$dose_combo) %>%
     dplyr::ungroup() %>%
-    tidyr::pivot_wider(names_from = .data$drug, values_from = .data$dri, names_prefix = 'dri_drug_') %>%
+    tidyr::pivot_wider(names_from = .data$drug, values_from = .data$dri, names_prefix = 'dri_') %>%
     dplyr::select(-.data$id)
 }
 
@@ -623,14 +623,18 @@ ncr_calc_combo <- function(ncr_combo, ...) {
   df_drugs <- list(...) %>%
     purrr::map_dfr(function(x) { data.frame(m = x$m, Dm = x$Dm, label = x$label, stringsAsFactors = FALSE) }) %>%
     dplyr::mutate(drug = paste0('drug_', dplyr::row_number())) %>%
-    dplyr::mutate(label = ifelse(.data$label == '', paste0('drug_', .data$drug), .data$label)) # fill in missing labels
+    dplyr::mutate(label = ifelse(.data$label == '', .data$drug, .data$label)) # fill in missing labels
 
   # return(list(df_combo, df_drugs))
 
   df <- df_combo %>%
-    tidyr::pivot_longer(tidyselect::contains('drug_'), names_to = 'drug', values_to = 'dose') %>%
+    tidyr::pivot_longer(tidyselect::contains('drug_'), names_to = 'drug', values_to = 'dose_combo') %>%
     dplyr::left_join(df_drugs, by = 'drug') %>%
-    dplyr::mutate(dose_single = (.data$Dm*(.data$fa / (1 - .data$fa))^(1/.data$m))) # calculate predicted single drug alone dose
+    dplyr::mutate(dose_single = (.data$Dm*(.data$fa / (1 - .data$fa))^(1/.data$m))) %>% # calculate predicted single drug alone dose
+    dplyr::select(
+      .data$id, .data$fa, .data$drug, .data$label, .data$dose_combo, .data$dose_single, .data$m, .data$Dm
+    )
+
 
   return(df)
 }
@@ -656,7 +660,7 @@ ncr_calc_ci <- function(ncr_combo, ...) {
 
   ncr_calc_combo(ncr_combo = ncr_combo, ...) %>%
     dplyr::group_by(.data$fa, .data$id) %>%
-    dplyr::summarize(CI = sum(.data$dose / .data$dose_single)) %>%
+    dplyr::summarize(CI = sum(.data$dose_combo / .data$dose_single)) %>%
     dplyr::ungroup() %>%
     dplyr::select(-.data$id)
 }

@@ -254,7 +254,7 @@ ncr_combo <- ncr_drug_effects(
   c(0.001, 0.002, 0.005, 0.01),
   c(0.1, 0.2, 0.5, 1),
   fa = c(0.45, 0.701, 0.910, 0.968),
-  name='"NCR" Paclitaxel - Cisplatin',
+  name='NCR Paclitaxel - Cisplatin',
   label = 'ncr_combo_1_2'
 )
 ncr_combo
