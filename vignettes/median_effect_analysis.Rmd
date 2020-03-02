@@ -1,10 +1,12 @@
 ---
-title: "median_effect_analysis"
+title: "Using the medianeffect package for analysis"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{median_effect_analysis}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
+csl: cell.csl
+bibliography: medianeffect.bib
 ---
 
 ```{r, include = FALSE}
@@ -22,47 +24,10 @@ suppressMessages(suppressWarnings(library(tidyverse)))
 library(medianeffect)
 ```
 
-### Median effect equation
 
-$$\frac{f_a}{f_u} = \left(\frac{D}{D_m}\right)^m$$
+## Using the `medianeffect` R package for analysis
 
-… where fraction affected plus fraction unaffected equals one, so: $f_u = 1 - f_a$
-
-### Linearizing by log transformation
-
-$$log\left(\frac{f_a}{1 - f_a}\right) = m~log(D) - m~log(D_m)$$
-
-Fitting a linear regression of $log\left(\frac{f_a}{f_u}\right)$ versus $log(D)$ allows determination of the $m$ and $D_m$ parameters.
-
-### Solving for dose, D
-
-$$D = D_m\left[\frac{f_a}{1 - f_a}\right]^{1/m}$$
-
-### Solving for fraction affected, fa
-
-$$f_a = \frac{1}{1 + \left(\frac{D_m}{D}\right)^m}$$
-
-### Combination Index (CI)
-
-$$CI = \sum_{i=1}^{n} \frac{(D)_i}{(D_x)_i}$$
-
-… where for a given fractional affect $f_a$,
-
-* $(D)_i$ is the dose of drug _i_ within the combination of _n_ drugs which results in a fractional effect of $f_a$
-* $(D_x)_i$ is the dose of drug _i_ alone which results in a fractional effect of $f_a$
-
-Combination index:
-
-* CI = 1 indicates additive effect
-* CI < 1 indicates synergism
-* CI > 1 indicates antangonism
-
-### Dose reduction index (DRI)
-
-$$DRI_i = \frac{(D_x)_i}{(D)_i}$$
-
-The reciprocal of each of the terms of the combination index (CI) reflects the fold-reduction (dose reduction index, DRI) of drug _i_ within the drug combination, to yield a given fractional affect $f_a$.
-
+[@chouComputerizedQuantitationSynergism1994; @chouDerivationPropertiesMichaelisMenten1976]
 
 ```{r, eval = FALSE}
 # Chou, T. C., R. J. Motzer, Y. Tong, and G. J. Bosl. 1994.
@@ -184,3 +149,62 @@ calc_ci(combo_1_2_3, drug1, drug2, drug3, fa = c(0.5, 0.75, 0.9, 0.95))
 calc_dri(combo_1_2_3, drug1, drug2, drug3, fa = c(0.5, 0.75, 0.9, 0.95))
 ```
 
+
+## Appendix: Theoretical background
+
+### Median effect equation
+
+The median effect equation relates dose (D) to fraction affected (fa).
+
+$$\frac{f_a}{f_u} = \left(\frac{D}{D_m}\right)^m$$
+
+… where fraction affected plus fraction unaffected equals one, so: $f_u = 1 - f_a$
+
+#### Dm parameter
+
+At a dose of $D = D_m$, the fraction affected will equal 50%; hence "median effect."
+
+#### m parameter
+
+The $m$ parameter describes the shape of the dose-effect relationship:
+
+* $m = 1$: hyperbolic
+* $m > 1$: sigmoidal
+* $m < 1$: negative (flat) sigmoidal
+
+### Linearizing by log transformation
+
+$$log\left(\frac{f_a}{1 - f_a}\right) = m~log(D) - m~log(D_m)$$
+
+Fitting a linear regression of $log\left(\frac{f_a}{1 - f_a}\right)$ versus $log(D)$ allows determination of the $m$ and $D_m$ parameters.
+
+### Solving for dose, D
+
+$$D = D_m\left[\frac{f_a}{1 - f_a}\right]^{1/m}$$
+
+### Solving for fraction affected, fa
+
+$$f_a = \frac{1}{1 + \left(\frac{D_m}{D}\right)^m}$$
+
+### Combination Index (CI)
+
+$$CI = \sum_{i=1}^{n} \frac{(D)_i}{(D_x)_i}$$
+
+… where for a given fraction affected $f_a$,
+
+* $(D)_i$ is the dose of drug _i_ within the combination of _n_ drugs which together results in the fraction affected
+* $(D_x)_i$ is the dose of drug _i_ alone which results in the fraction affected = $f_a$
+
+The combination index describes the degree of synergism / antagonism, at a given fraction affected:
+
+* CI = 1 indicates additive effect
+* CI < 1 indicates synergism
+* CI > 1 indicates antangonism
+
+### Dose reduction index (DRI)
+
+$$DRI_i = \frac{(D_x)_i}{(D)_i}$$
+
+The reciprocal of each of the terms of the combination index (CI) reflects the fold-reduction (dose reduction index, DRI) of drug _i_ within the drug combination, at a given fractional affect $f_a$.
+
+## References

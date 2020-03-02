@@ -12,7 +12,7 @@ help(package = medianeffect)
 
 Package vignettes:
 - http://r-pkgs.had.co.nz/vignettes.html#vignette-workflow-2
-- devtools::use_vignette("medianeffect")
+- usethis::use_vignette("medianeffect")
 - not sure if need to do this: in RStudio configure build tools, check the use roxygen to generate vignettes box -- unchecked still works?
 - https://stackoverflow.com/questions/33614660/knitr-rmd-vignettes-do-not-appear-with-vignette
 
