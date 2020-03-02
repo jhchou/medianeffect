@@ -262,7 +262,7 @@ ncr_combo
 
 The combination index can then be calculated, but only for the observed fractional effects, using the `ncr_calc_ci` function:
 
-```{r, eval = FALSE}
+```{r}
 ncr_calc_ci(ncr_combo, drug1, drug2)
 ```
 
