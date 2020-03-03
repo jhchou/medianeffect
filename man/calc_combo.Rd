@@ -14,7 +14,8 @@ calc_combo(drug_combo, ..., fa = double())
 \item{fa}{Vector of fraction affected (fa) at which calculations will be made (optional)}
 }
 \description{
-Given drug_combo and arbitrary number of single-drug effect objects, calculate
+Given drug combination object (either fixed or non-fixed ratio) and arbitrary number
+of single-drug effect objects, calculate
 all parameters needed for later calculation of combination or dose reduction index,
 at either a vector of specified fa values or using actual doses / fa from drug_combo.
 Returns unique id, total dose in combination, fa, single drug doses needed for fa,

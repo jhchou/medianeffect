@@ -1,6 +1,9 @@
 ---
 title: "Using the medianeffect package for dose-effect analysis"
-output: rmarkdown::html_vignette
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
 vignette: >
   %\VignetteIndexEntry{medianeffect}
   %\VignetteEngine{knitr::rmarkdown}
@@ -14,7 +17,7 @@ knitr::opts_chunk$set(
   fig.align = 'center', # left, right, center, default
   fig.width = 6, # dimensions of plots in inches
   fig.height = 4,
-  fig.retina = 3,
+  # fig.retina = 3, # not supported for html_vignette
   collapse = TRUE,
   comment = "#>"
 )
@@ -24,23 +27,26 @@ knitr::opts_chunk$set(
 # suppressMessages(suppressWarnings(library(tidyverse)))
 ```
 
-In this document, I replicate analysis from [@chouComputerizedQuantitationSynergism1994] using the R `medianeffect` package. Background information on the Median Effect Principle and analysis of combinations of drugs are provided in the Appendix below.
+The `medianeffect` R package implements methods for drug dose and effect analysis and quantifying degree of synergism versus antagonism via the Median Effect Principle [@chouDerivationPropertiesMichaelisMenten1976; @chouQuantitativeAnalysisDoseeffect1984].
 
-* Chou, T. C., R. J. Motzer, Y. Tong, and G. J. Bosl. 1994. "Computerized Quantitation of Synergism and Antagonism of Taxol, Topotecan, and Cisplatin against Human Teratocarcinoma Cell Growth: A Rational Approach to Clinical Protocol Design." Journal of the National Cancer Institute 86 (20): 1517–24. https://doi.org/10.1093/jnci/86.20.1517.
+This work is neither approved nor endorsed by Dr. Ting-Chao Chou, the developer of this analytic approach.
 
-The drug dose-effect data is taken from Table 3, detailing the effect of paclitaxel, cisplatin, and topotecan individually and in 2- and 3-drug combinations on inhibition of 833K teratocarcinoma cells.
+In this document, the `medianeffect` package is used to replicate analysis from [@chouComputerizedQuantitationSynergism1994] reporting the effect of paclitaxel, cisplatin, and topotecan individually and in 2- and 3-drug combinations on inhibition of 833K teratocarcinoma cells. The drug dose-effect data is taken from Table 3.
+
+After package installation, this document is available via `vignette('medianeffect')`.
+
 
 ## Setup
 
-If not already done, the first step is to install the `medianeffect` package from GitHub. Package installation only has to be done once.
-
-The [package is available on GitHub](https://github.com/jhchou/medianeffect) under the permissive [MIT open source license](https://opensource.org/licenses/MIT), allowing rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, subject to the condition that the copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+If not previously done, install the `medianeffect` [package from GitHub](https://github.com/jhchou/medianeffect)):
 
 ```{r, eval = FALSE}
 devtools::install_github("jhchou/medianeffect", build_vignettes = TRUE)
 ```
 
-Once installed, load the `medianeffect` package. This document is available via `vignette('medianeffect')`
+The package is made available under the permissive [MIT open source license](https://opensource.org/licenses/MIT), allowing rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, subject to attribution and inclusion of the MIT license notice in derivative works. The MIT license also limits any liability in connection with this Software.
+
+Once installed, load the `medianeffect` package:
 
 ```{r}
 library(medianeffect)
@@ -245,6 +251,8 @@ calc_dri(combo_1_2_3, drug1, drug2, drug3, fa = c(0.5, 0.75, 0.9, 0.95))
 ## Non-constant ratio combination analysis
 
 Although not done in the cited study, the `medianeffect` package also supports calculations for drug combinations that are not at a constant ratio between drug components.
+
+### Combination index at observed fa
 
 A non-constant ratio drug effect object is created with the `ncr_drug_effects` function, which takes vectors of each drug in the combination, followed by a vector of observed fraction affected.
 
