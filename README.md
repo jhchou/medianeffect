@@ -16,7 +16,7 @@ devtools::install_github("jhchou/medianeffect", build_vignettes = TRUE)
 
 ## Example usage
 
-A package vignette provides a detailed example of most functionality and includessome technical background.
+A package vignette provides a detailed example of most functionality and includes some technical background.
 
 ```r
 # View package vignette
