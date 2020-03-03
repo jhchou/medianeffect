@@ -294,9 +294,9 @@ isobologram_plot(combo_1_2, drug1, drug2, normalized = FALSE)
 
 ## Appendix: Theoretical background
 
-### Median effect equation [@chouDerivationPropertiesMichaelisMenten1976]
+### Median effect equation
 
-The median effect equation relates dose (D) to fraction affected (fa).
+The median effect equation [@chouDerivationPropertiesMichaelisMenten1976] relates dose (D) to fraction affected (fa).
 
 $$\frac{f_a}{f_u} = \left(\frac{D}{D_m}\right)^m$$
 
@@ -328,7 +328,13 @@ $$D = D_m\left[\frac{f_a}{1 - f_a}\right]^{1/m}$$
 
 $$f_a = \frac{1}{1 + \left(\frac{D_m}{D}\right)^m}$$
 
-### Combination Index (CI) [@chouQuantitativeAnalysisDoseeffect1984]
+### Combination Index (CI)
+
+The combination index [@chouQuantitativeAnalysisDoseeffect1984] describes the degree of synergism / antagonism, at a given fraction affected:
+
+* CI = 1 indicates additive effect
+* CI < 1 indicates synergism
+* CI > 1 indicates antangonism
 
 $$CI = \sum_{i=1}^{n} \frac{(D)_i}{(D_x)_i}$$
 
@@ -337,11 +343,6 @@ $$CI = \sum_{i=1}^{n} \frac{(D)_i}{(D_x)_i}$$
 * $(D)_i$ is the dose of drug _i_ within the combination of _n_ drugs which together results in the fraction affected
 * $(D_x)_i$ is the dose of drug _i_ alone which results in the fraction affected = $f_a$
 
-The combination index describes the degree of synergism / antagonism, at a given fraction affected:
-
-* CI = 1 indicates additive effect
-* CI < 1 indicates synergism
-* CI > 1 indicates antangonism
 
 ### Dose reduction index (DRI)
 
