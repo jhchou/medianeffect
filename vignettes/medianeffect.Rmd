@@ -349,4 +349,15 @@ $$DRI_i = \frac{(D_x)_i}{(D)_i}$$
 
 The reciprocal of each of the terms of the combination index (CI) reflects the fold-reduction (dose reduction index, DRI) of drug _i_ within the drug combination, at a given fractional affect $f_a$.
 
+### Isobologram
+
+The isobologram is a visualization method to assess combinations of two drugs. It has been asserted to be appropriate when the the effects of the drugs are mutually exclusive [@chouQuantitativeAnalysisDoseeffect1984].
+
+Each axis reflects the dose of one of the two drugs and the plotted line indicates a predicted equipotency curve for additive effect. Plotted points for observed effects from a drug combination that fall above or below the equipotency curve reflect antagonism and synergism respectively.
+
+In the standard isobologram, the X and Y axis reflect actual drug doses so a different line is plotted for each equipotency curve. The normalized isobologram standardizes the single drug doses to a value of 1 for all fractional effects, so all predicted additive equipotency curves are represented by a single line.
+
+The `medianeffect` R package is limited to plotting isobolograms for two drug combinations, as more drugs would require plotting in higher dimensional space.
+
+
 ## References
