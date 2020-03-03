@@ -635,3 +635,65 @@ ncr_calc_ci <- function(ncr_combo, ...) {
     dplyr::ungroup() %>%
     dplyr::select(-.data$id)
 }
+
+
+
+
+
+#' Generate isobologram plot
+#'
+#' Generate either normalized or classic isobologram plot for either fixed ratio or
+#' non-constant ratio two drug combinations. The observed fraction affected (fa) values
+#' from the drug combination will be used
+#'
+#' @param drug_combo Two drug combination drug effect object
+#' @param drug1  Drug effect object to plot on X axis
+#' @param drug2  Drug effect object to plot on Y axis
+#' @param normalized Whether to plot normalized (default) or classic isobologram
+#' @importFrom rlang .data
+#' @export
+isobologram_plot <- function(drug_combo, drug1, drug2, normalized = TRUE) {
+
+  # input validation will occur within calc_combo, so don't bother here
+
+  drug1_label <- ifelse(drug1$label == '', 'Drug 1', drug1$label)
+  drug2_label <- ifelse(drug2$label == '', 'Drug 2', drug2$label)
+
+  df <- calc_combo(drug_combo, drug1, drug2) %>%
+    dplyr::select(-.data$label, -.data$m, -.data$Dm)
+
+  # Generate the points on the axis to be connected by lines:
+  # - brute force separate the drug_1 and drug_2 single doses to separate rows, with coordinates (drug_1, 0) and (0, drug_2)
+  # - keeping fa, as each line will represent the equipotency line for the isobologram
+  df2 <- df %>%
+    dplyr::select(.data$id, .data$fa, .data$drug, .data$dose_single) %>%
+    tidyr::pivot_wider(names_from = .data$drug, values_from = .data$dose_single)
+
+  df_axis <- dplyr::bind_rows(df2 %>% dplyr::select(.data$id, .data$fa, .data$drug_1), df2 %>% dplyr::select(.data$id, .data$fa, .data$drug_2)) %>%
+    tidyr::replace_na(list(drug_1 = 0, drug_2 = 0)) %>%
+    dplyr::mutate(fa = as.character(.data$fa))
+
+  df_points <- df %>%
+    dplyr::select(.data$id, .data$fa, .data$drug, .data$dose_combo) %>%
+    tidyr::pivot_wider(names_from = .data$drug, values_from = .data$dose_combo) %>%
+    dplyr::mutate(fa = as.character(.data$fa))
+
+  if (normalized) {
+    # normalized isobologram
+    df_points %>%
+      dplyr::left_join(df2 %>% dplyr::transmute(.data$id, d1 = .data$drug_1, d2 = .data$drug_2), by = 'id') %>%
+      dplyr::mutate(drug_1 = .data$drug_1 / .data$d1, drug_2 = .data$drug_2 / .data$d2) %>%
+      ggplot2::ggplot(ggplot2::aes(.data$drug_1, .data$drug_2)) +
+        ggplot2::geom_point(ggplot2::aes(color = .data$fa)) +
+        ggplot2::geom_line(data = data.frame(drug_1 = c(1, 0), drug_2 = c(0, 1)), ggplot2::aes(.data$drug_1, .data$drug_2)) +
+        ggplot2::coord_cartesian(xlim = c(0, 1), ylim = c(0,1)) +
+        ggplot2::labs(x = drug1_label, y = drug2_label, color = 'Fraction affected')
+  } else {
+    df_axis %>% ggplot2::ggplot(ggplot2::aes(.data$drug_1, .data$drug_2, color = .data$fa)) +
+      ggplot2::geom_line() +
+      ggplot2::geom_point(data = df_points) +
+      ggplot2::labs(x = drug1_label, y = drug2_label, color = 'Fraction affected')
+  }
+}
+
+# ggplot2::labs(color = 'Drug', shape = 'Drug')

@@ -29,41 +29,43 @@ library(tidyverse)
 
 # Isobologram
 
-df <- calc_combo(combo_1_2, drug1, drug2) %>%
-  select(-label, -m, -Dm)
-
-# Generate the points on the axis to be connected by lines:
-# - brute force separate the drug_1 and drug_2 single doses to separate rows, with coordinates (drug_1, 0) and (0, drug_2)
-# - keeping fa, as each line will represent the equipotency line for the isobologram
-df2 <- df %>%
-  select(id, fa, drug, dose_single) %>%
-  pivot_wider(names_from = drug, values_from = dose_single)
-
-df_axis <-bind_rows(df2 %>% select(id, fa, drug_1), df2 %>% select(id, fa, drug_2)) %>%
-  replace_na(list(drug_1 = 0, drug_2 = 0)) %>%
-  mutate(fa = as.character(fa))
 
 
+isobologram_plot <- function(drug_combo, ..., normalized = TRUE) {
 
-df_points <- df %>%
-  select(id, fa, drug, dose_combo) %>%
-  pivot_wider(names_from = drug, values_from = dose_combo) %>%
-  mutate(fa = as.character(fa))
+  # input validation will occur within calc_combo, so don't bother here
+  df <- calc_combo(drug_combo, ...) %>%
+    select(-label, -m, -Dm)
 
+  # Generate the points on the axis to be connected by lines:
+  # - brute force separate the drug_1 and drug_2 single doses to separate rows, with coordinates (drug_1, 0) and (0, drug_2)
+  # - keeping fa, as each line will represent the equipotency line for the isobologram
+  df2 <- df %>%
+    select(id, fa, drug, dose_single) %>%
+    pivot_wider(names_from = drug, values_from = dose_single)
 
-df_axis %>% ggplot(aes(drug_1, drug_2, color = fa)) +
-  geom_line() +
-  geom_point(data = df_points)
+  df_axis <-bind_rows(df2 %>% select(id, fa, drug_1), df2 %>% select(id, fa, drug_2)) %>%
+    replace_na(list(drug_1 = 0, drug_2 = 0)) %>%
+    mutate(fa = as.character(fa))
 
+  df_points <- df %>%
+    select(id, fa, drug, dose_combo) %>%
+    pivot_wider(names_from = drug, values_from = dose_combo) %>%
+    mutate(fa = as.character(fa))
 
-# normalized isobologram
-df_points %>%
-  left_join(df2 %>% transmute(id, d1 = drug_1, d2 = drug_2), by = 'id') %>%
-  mutate(drug_1 = drug_1 / d1, drug_2 = drug_2 / d2) %>%
-  ggplot(aes(drug_1, drug_2)) +
-    geom_point(aes(color = fa)) +
-    geom_line(data = data.frame(drug_1 = c(1, 0), drug_2 = c(0, 1)), aes(drug_1, drug_2)) +
-    coord_cartesian(xlim = c(0, 1), ylim = c(0,1))
+  if (normalized) {
+    # normalized isobologram
+    df_points %>%
+      left_join(df2 %>% transmute(id, d1 = drug_1, d2 = drug_2), by = 'id') %>%
+      mutate(drug_1 = drug_1 / d1, drug_2 = drug_2 / d2) %>%
+      ggplot(aes(drug_1, drug_2)) +
+        geom_point(aes(color = fa)) +
+        geom_line(data = data.frame(drug_1 = c(1, 0), drug_2 = c(0, 1)), aes(drug_1, drug_2)) +
+        coord_cartesian(xlim = c(0, 1), ylim = c(0,1))
+  } else {
+    df_axis %>% ggplot(aes(drug_1, drug_2, color = fa)) +
+      geom_line() +
+      geom_point(data = df_points)
+  }
+}
 
-
-# pivot_wider(id_cols = c(id, fa), names_from = drug, values_from = c(dose_single, dose_combo))

@@ -1,7 +1,7 @@
 Package: medianeffect
 Type: Package
 Title: Dose-Effect Analysis with the Median Effect Principle
-Version: 0.2.0
+Version: 0.9.0
 Author: Joseph Chou
 Maintainer: Joseph Chou <joe.nicu@gmail.com>
 Description: Facilitate analysis of single and multiple drug

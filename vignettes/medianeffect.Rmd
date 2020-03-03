@@ -274,6 +274,23 @@ The combination index can then be calculated, but only for the observed fraction
 ncr_calc_ci(ncr_combo, drug1, drug2)
 ```
 
+## Isobologram
+
+Both standard and normalized isobologram plots can be generated using the `isobologram_plot` function, from two drug combinations at either constant or non-constant ratio, by passing in a two-drug drug combination object followed by two single drug objects.
+
+### Normalized isobologram (default)
+
+```{r}
+isobologram_plot(combo_1_2, drug1, drug2)
+```
+
+
+### Standard isobologram
+
+```{r}
+isobologram_plot(combo_1_2, drug1, drug2, normalized = FALSE)
+```
+
 
 ## Appendix: Theoretical background
 
